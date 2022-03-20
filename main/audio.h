@@ -1,6 +1,3 @@
-#ifndef _AUDIO_H_
-#define _AUDIO_H_
+#pragma once
 
 void audio_init(void);
-
-#endif
