@@ -23,11 +23,17 @@ void audio_init(void) {
 }
 
 static void audio_task(void *param) {
+    bool cardOk = false;
     vs_init();
     vs_set_volume(0xA0, 0xC0);
-    vs_card_open();
 
     for (;;) {
+        if (!cardOk) {
+            cardOk = vs_card_open();
+        }
+        if (cardOk) {
+            cardOk = vs_read_dir();
+        }
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }

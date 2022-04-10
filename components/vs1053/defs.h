@@ -21,3 +21,7 @@
 
 #define MODE_SDINEW  0x0800
 #define MODE_RESET   0x0004
+
+#define FS_NUM         1
+#define MOUNTPOINT     "/sdcard"
+#define MAX_OPEN_FILES 1
