@@ -1,3 +1,4 @@
 #pragma once
 
-void http_init(void);
+void http_start(void);
+void http_stop(void);

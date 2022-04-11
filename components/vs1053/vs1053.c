@@ -10,7 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdmmc_cmd.h"
-#include "sys/dirent.h"
+#include "string.h"
 
 #include "defs.h"
 #include "sci.h"
@@ -21,10 +21,10 @@ static const char *TAG = "vs1053";
 static spi_device_handle_t sci_handle;
 static bool initialized;
 static sdmmc_card_t card;
-static bool cardOk;
+static char *mounted;
 
-void vs_init(void) {
-    if (initialized) return;
+esp_err_t vs_init(void) {
+    if (initialized) return ESP_OK;
 
     // configure pins
     gpio_config_t io_conf = {};
@@ -89,6 +89,8 @@ void vs_init(void) {
     } else {
         ESP_LOGE(TAG, "invalid version");
     }
+
+    return initialized ? ESP_OK : ESP_FAIL;
 }
 
 void vs_set_volume(uint8_t left, uint8_t right) {
@@ -98,27 +100,28 @@ void vs_set_volume(uint8_t left, uint8_t right) {
     sci_write(sci_handle, REG_VOL, (left << 8) | right);
 }
 
-bool vs_card_open(void) {
-    if (!initialized) return false;
+esp_err_t vs_card_init(const char *mountpoint) {
+    if (!initialized) return ESP_FAIL;
 
     const char drive[] = { '0' + FS_NUM, ':', 0 };
 
-    if (cardOk) {
+    if (mounted) {
         f_unmount("1:");
         ff_diskio_register(FS_NUM, NULL);
-        esp_vfs_fat_unregister_path(MOUNTPOINT);
-        cardOk = false;
+        esp_vfs_fat_unregister_path(mounted);
+        free(mounted);
+        mounted = NULL;
     }
 
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     if (   (sdmmc_card_init(&host, &card) != ESP_OK)
         || (sdmmc_get_status(&card) != ESP_OK)) {
         ESP_LOGW(TAG, "no card");
-        return false;
+        return ESP_FAIL;
     }
 
     FATFS *fatfs = NULL;
-    ESP_ERROR_CHECK(esp_vfs_fat_register(MOUNTPOINT, drive, MAX_OPEN_FILES, &fatfs));
+    ESP_ERROR_CHECK(esp_vfs_fat_register(mountpoint, drive, MAX_OPEN_FILES, &fatfs));
 
     ff_diskio_register_sdmmc(FS_NUM, &card);
 
@@ -126,39 +129,13 @@ bool vs_card_open(void) {
     if (fres != FR_OK) {
         ESP_LOGE(TAG, "mount failed: %d", fres);
         ff_diskio_register(FS_NUM, NULL);
-        esp_vfs_fat_unregister_path(MOUNTPOINT);
-        return false;
+        esp_vfs_fat_unregister_path(mountpoint);
+        return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "card ok");
-    cardOk = true;
-    return true;
-}
+    ESP_LOGI(TAG, "card mounted on %s", mountpoint);
 
-bool vs_read_dir(void) {
-    if (!initialized) return false;
+    mounted = strdup(mountpoint);
 
-    if (sdmmc_get_status(&card) != ESP_OK) {
-        ESP_LOGE(TAG, "card not ok");
-        return false;
-    }
-
-    DIR *dir = opendir(MOUNTPOINT);
-    if (!dir) {
-        ESP_LOGE(TAG, "reading directory failed");
-        return false;
-    }
-
-    struct dirent *entry = readdir(dir);
-    if (!entry) {
-        ESP_LOGW(TAG, "empty directory");
-        return false;
-    }
-    while (entry) {
-        ESP_LOGI(TAG, "File found: %s", entry->d_name);
-        entry = readdir(dir);
-    }
-    closedir(dir);
-
-    return true;
+    return ESP_OK;
 }

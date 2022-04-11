@@ -10,18 +10,17 @@
 #define PIN_SCI_CS  GPIO_NUM_14
 #define PIN_SD_CS   GPIO_NUM_25
 
-#define SCI_FREQ     100000
+#define SCI_FREQ         100000
 
-#define CMD_WRITE      0x02
-#define CMD_READ       0x03
+#define CMD_WRITE          0x02
+#define CMD_READ           0x03
 
-#define REG_MODE       0x00
-#define REG_STATUS     0x01
-#define REG_VOL        0x0B
+#define REG_MODE           0x00
+#define REG_STATUS         0x01
+#define REG_VOL            0x0B
 
-#define MODE_SDINEW  0x0800
-#define MODE_RESET   0x0004
+#define MODE_SDINEW      0x0800
+#define MODE_RESET       0x0004
 
-#define FS_NUM         1
-#define MOUNTPOINT     "/sdcard"
-#define MAX_OPEN_FILES 1
+#define FS_NUM                1
+#define MAX_OPEN_FILES        1

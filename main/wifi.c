@@ -29,9 +29,11 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
     switch (event_id) {
         case WIFI_EVENT_AP_START:
             ESP_LOGI(TAG, "started");
+            http_start();
             break;
         case WIFI_EVENT_AP_STOP:
             ESP_LOGI(TAG, "stopped");
+            http_stop();
             break;
         case WIFI_EVENT_AP_STACONNECTED:
             {
@@ -85,9 +87,8 @@ static void wifi_task(void *param) {
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    http_init();
-
     for (;;) {
+        // TODO task needed?? if not, move to init function
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
