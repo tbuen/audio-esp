@@ -44,6 +44,11 @@ void audio_release_tracks(void) {
     xSemaphoreGive(mutex);
 }
 
+bool audio_play(const char *filename) {
+    if (filename[0] == 't') return true;
+    return false;
+}
+
 static void audio_task(void *param) {
     const char *path = "/sdcard";
     esp_err_t res = ESP_FAIL;
