@@ -7,7 +7,8 @@
 #include "http.h"
 #include "wifi.h"
 
-#define TASK_PRIO     0
+#define TASK_CORE     1
+#define TASK_PRIO     1
 #define STACK_SIZE 4096
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
@@ -20,7 +21,7 @@ static TaskHandle_t handle;
 void wifi_init(void) {
     if (handle) return;
 
-    if (xTaskCreate(&wifi_task, "wifi-task", STACK_SIZE, NULL, TASK_PRIO, &handle) != pdPASS) {
+    if (xTaskCreatePinnedToCore(&wifi_task, "wifi-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
         ESP_LOGE(TAG, "could not create task");
     }
 }
@@ -89,6 +90,6 @@ static void wifi_task(void *param) {
 
     for (;;) {
         // TODO task needed?? if not, move to init function
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }

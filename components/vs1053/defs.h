@@ -8,15 +8,20 @@
 #define PIN_MISO    GPIO_NUM_26
 #define PIN_CLK     GPIO_NUM_12
 #define PIN_SCI_CS  GPIO_NUM_14
+#define PIN_SDI_CS  GPIO_NUM_33
 #define PIN_SD_CS   GPIO_NUM_25
 
-#define SCI_FREQ         100000
+#define SCI_FREQ         250000
+#define SPI_FREQ         250000
 
 #define CMD_WRITE          0x02
 #define CMD_READ           0x03
 
 #define REG_MODE           0x00
 #define REG_STATUS         0x01
+#define REG_CLOCKF         0x03
+#define REG_HDAT0          0x08
+#define REG_HDAT1          0x09
 #define REG_VOL            0x0B
 
 #define MODE_SDINEW      0x0800

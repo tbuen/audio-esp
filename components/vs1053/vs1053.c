@@ -14,11 +14,13 @@
 
 #include "defs.h"
 #include "sci.h"
+#include "sdi.h"
 #include "vs1053.h"
 
 static const char *TAG = "vs1053";
 
 static spi_device_handle_t sci_handle;
+static spi_device_handle_t sdi_handle;
 static bool initialized;
 static sdmmc_card_t card;
 static char *mounted;
@@ -35,6 +37,7 @@ esp_err_t vs_init(void) {
 
     io_conf.pin_bit_mask = BIT64(PIN_DREQ);
     io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
     ESP_ERROR_CHECK(gpio_config(&io_conf));
 
     // reset active
@@ -48,18 +51,29 @@ esp_err_t vs_init(void) {
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
     };
-    ESP_ERROR_CHECK(spi_bus_initialize(HOST, &bus_conf, SPI_DMA_CH_AUTO));
+    ESP_ERROR_CHECK(spi_bus_initialize(HOST, &bus_conf, SPI_DMA_CH1));
 
     // add sci device to spi bus
     spi_device_interface_config_t sci_conf = {
         .command_bits = 8,
         .address_bits = 8,
-        .clock_speed_hz = SCI_FREQ,
+        .clock_speed_hz = 250000,
         .spics_io_num = PIN_SCI_CS,
         .flags = SPI_DEVICE_HALFDUPLEX,
-        .queue_size = 5,
+        .queue_size = 1,
     };
     ESP_ERROR_CHECK(spi_bus_add_device(HOST, &sci_conf, &sci_handle));
+
+    // add sdi device to spi bus
+    spi_device_interface_config_t sdi_conf = {
+        .command_bits = 0,
+        .address_bits = 0,
+        .clock_speed_hz = SPI_MASTER_FREQ_8M,
+        .spics_io_num = PIN_SDI_CS,
+        .flags = SPI_DEVICE_HALFDUPLEX | SPI_DEVICE_NO_DUMMY,
+        .queue_size = 1,
+    };
+    ESP_ERROR_CHECK(spi_bus_add_device(HOST, &sdi_conf, &sdi_handle));
 
     // add sd card device to spi bus
     ESP_ERROR_CHECK(sdspi_host_init());
@@ -74,11 +88,15 @@ esp_err_t vs_init(void) {
     ESP_ERROR_CHECK(sdspi_host_init_device(&sd_conf, &sd_handle));
 
     // wake from reset
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(100));
     gpio_set_level(PIN_RESET, 1);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(100));
     sci_write(sci_handle, REG_MODE, MODE_SDINEW | MODE_RESET);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    // set clock frequency
+    sci_write(sci_handle, REG_CLOCKF, 0x6000); // MULT 3.0 ADD 0.0
+    //sci_write(sci_handle, REG_CLOCKF, 0x8800); // MULT 3.5 ADD 1.0
 
     // read status
     uint16_t status = sci_read(sci_handle, REG_STATUS);
@@ -98,6 +116,22 @@ void vs_set_volume(uint8_t left, uint8_t right) {
 
     ESP_LOGI(TAG, "set volume to %1.1fdB %1.1fdB", -0.5 * left, -0.5 * right);
     sci_write(sci_handle, REG_VOL, (left << 8) | right);
+    uint16_t vol = sci_read(sci_handle, REG_VOL);
+    ESP_LOGI(TAG, "volume set to %1.1fdB %1.1fdB", -0.5 * (vol >> 8), -0.5 * (vol & 0xFF));
+}
+
+void vs_send_data(const uint8_t *data, uint16_t len) {
+    if (!initialized) return;
+
+    sdi_write(sdi_handle, data, len);
+}
+
+static char statusbuf[32];
+const char *vs_get_status(void) {
+    uint16_t hdat0 = sci_read(sci_handle, REG_HDAT0);
+    uint16_t hdat1 = sci_read(sci_handle, REG_HDAT1);
+    sprintf(statusbuf, "0x%04x 0x%04x", hdat0, hdat1);
+    return statusbuf;
 }
 
 esp_err_t vs_card_init(const char *mountpoint) {
