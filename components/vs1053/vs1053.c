@@ -57,8 +57,8 @@ esp_err_t vs_init(void) {
     spi_device_interface_config_t sci_conf = {
         .command_bits = 8,
         .address_bits = 8,
-        .clock_speed_hz = 250000,
-        .spics_io_num = PIN_SCI_CS,
+        .clock_speed_hz = SCI_FREQ,
+        .spics_io_num = PIN_CS_SCI,
         .flags = SPI_DEVICE_HALFDUPLEX,
         .queue_size = 1,
     };
@@ -68,9 +68,9 @@ esp_err_t vs_init(void) {
     spi_device_interface_config_t sdi_conf = {
         .command_bits = 0,
         .address_bits = 0,
-        .clock_speed_hz = SPI_MASTER_FREQ_8M,
-        .spics_io_num = PIN_SDI_CS,
-        .flags = SPI_DEVICE_HALFDUPLEX | SPI_DEVICE_NO_DUMMY,
+        .clock_speed_hz = SDI_FREQ,
+        .spics_io_num = PIN_CS_SDI,
+        .flags = SPI_DEVICE_HALFDUPLEX,
         .queue_size = 1,
     };
     ESP_ERROR_CHECK(spi_bus_add_device(HOST, &sdi_conf, &sdi_handle));
@@ -79,7 +79,7 @@ esp_err_t vs_init(void) {
     ESP_ERROR_CHECK(sdspi_host_init());
     sdspi_device_config_t sd_conf = {
         .host_id = HOST,
-        .gpio_cs = PIN_SD_CS,
+        .gpio_cs = PIN_CS_SD,
         .gpio_cd = SDSPI_SLOT_NO_CD,
         .gpio_wp = SDSPI_SLOT_NO_WP,
         .gpio_int = SDSPI_SLOT_NO_INT,
@@ -96,7 +96,6 @@ esp_err_t vs_init(void) {
 
     // set clock frequency
     sci_write(sci_handle, REG_CLOCKF, 0x6000); // MULT 3.0 ADD 0.0
-    //sci_write(sci_handle, REG_CLOCKF, 0x8800); // MULT 3.5 ADD 1.0
 
     // read status
     uint16_t status = sci_read(sci_handle, REG_STATUS);
@@ -104,6 +103,7 @@ esp_err_t vs_init(void) {
     if (((status & 0xF0) >> 4) == 4) {
         ESP_LOGI(TAG, "init ok");
         initialized = true;
+        sci_write(sci_handle, REG_VOL, 0xFEFE);
     } else {
         ESP_LOGE(TAG, "invalid version");
     }
@@ -111,13 +111,19 @@ esp_err_t vs_init(void) {
     return initialized ? ESP_OK : ESP_FAIL;
 }
 
-void vs_set_volume(uint8_t left, uint8_t right) {
+uint16_t vs_get_volume(void) {
+    if (!initialized) return 0xFFFF;
+
+    uint16_t vol = sci_read(sci_handle, REG_VOL);
+    ESP_LOGI(TAG, "volume get %1.1fdB %1.1fdB", -0.5 * (vol >> 8), -0.5 * (vol & 0xFF));
+    return vol;
+}
+
+void vs_set_volume(uint16_t vol) {
     if (!initialized) return;
 
-    ESP_LOGI(TAG, "set volume to %1.1fdB %1.1fdB", -0.5 * left, -0.5 * right);
-    sci_write(sci_handle, REG_VOL, (left << 8) | right);
-    uint16_t vol = sci_read(sci_handle, REG_VOL);
-    ESP_LOGI(TAG, "volume set to %1.1fdB %1.1fdB", -0.5 * (vol >> 8), -0.5 * (vol & 0xFF));
+    ESP_LOGI(TAG, "volume set %1.1fdB %1.1fdB", -0.5 * (vol >> 8), -0.5 * (vol & 0xFF));
+    sci_write(sci_handle, REG_VOL, vol);
 }
 
 void vs_send_data(const uint8_t *data, uint16_t len) {

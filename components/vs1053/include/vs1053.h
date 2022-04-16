@@ -4,7 +4,8 @@
 
 esp_err_t vs_init(void);
 
-void vs_set_volume(uint8_t left, uint8_t right);
+uint16_t vs_get_volume(void);
+void vs_set_volume(uint16_t vol);
 
 void vs_send_data(const uint8_t *data, uint16_t len);
 

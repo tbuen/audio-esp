@@ -49,6 +49,22 @@ void audio_release_tracks(void) {
     xSemaphoreGive(mutex);
 }
 
+void audio_volume(volume_t *vol, bool set) {
+    if (set) {
+        if (vol->left > 0) vol->left = 0;
+        if (vol->left < -127) vol->left = -127;
+        if (vol->right > 0) vol->right = 0;
+        if (vol->right < -127) vol->right = -127;
+
+        uint8_t left = -2 * vol->left;
+        uint8_t right = -2 * vol->right;
+        vs_set_volume((left << 8) | right);
+    }
+    uint16_t v = vs_get_volume();
+    vol->left = (v >> 8) / -2;
+    vol->right = (v & 0xFF) / -2;
+}
+
 bool audio_play(const char *filename) {
     if (!file2play) {
         file2play = strdup(filename);
@@ -63,7 +79,7 @@ static void audio_task(void *param) {
     const char *path = "/sdcard";
     esp_err_t res = ESP_FAIL;
     vs_init();
-    vs_set_volume(0x20, 0x20);
+    vs_set_volume(0x1414);
 
     for (;;) {
         if (res == ESP_FAIL) {

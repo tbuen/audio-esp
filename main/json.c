@@ -41,6 +41,53 @@ char *json_get_tracks(void) {
     return string;
 }
 
+char *json_get_volume(void) {
+    volume_t vol;
+    audio_volume(&vol, false);
+    char *string;
+
+    cJSON *resp = cJSON_CreateObject();
+
+    cJSON_AddNumberToObject(resp, "left", vol.left);
+    cJSON_AddNumberToObject(resp, "right", vol.right);
+
+    string = cJSON_PrintUnformatted(resp);
+    cJSON_Delete(resp);
+
+    return string;
+}
+
+bool json_post_volume(const char *content, char **response) {
+    bool valid = false;
+
+    cJSON *req = cJSON_Parse(content);
+
+    if (req) {
+        cJSON *left = cJSON_GetObjectItemCaseSensitive(req, "left");
+        cJSON *right = cJSON_GetObjectItemCaseSensitive(req, "right");
+        if (cJSON_IsNumber(left) && cJSON_IsNumber(right)) {
+            valid = true;
+
+            volume_t vol = {
+                .left = left->valueint,
+                .right = right->valueint,
+            };
+            audio_volume(&vol, true);
+
+            cJSON *resp = cJSON_CreateObject();
+
+            cJSON_AddNumberToObject(resp, "left", vol.left);
+            cJSON_AddNumberToObject(resp, "right", vol.right);
+
+            *response = cJSON_PrintUnformatted(resp);
+            cJSON_Delete(resp);
+        }
+        cJSON_Delete(req);
+    }
+
+    return valid;
+}
+
 bool json_post_play(const char *content, char **response) {
     bool valid = false;
 

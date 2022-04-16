@@ -3,16 +3,16 @@
 #define HOST        SPI2_HOST
 
 #define PIN_RESET   GPIO_NUM_13
-#define PIN_DREQ    GPIO_NUM_34
+#define PIN_DREQ    GPIO_NUM_35
 #define PIN_MOSI    GPIO_NUM_27
-#define PIN_MISO    GPIO_NUM_26
+#define PIN_MISO    GPIO_NUM_34
 #define PIN_CLK     GPIO_NUM_12
-#define PIN_SCI_CS  GPIO_NUM_14
-#define PIN_SDI_CS  GPIO_NUM_33
-#define PIN_SD_CS   GPIO_NUM_25
+#define PIN_CS_SCI  GPIO_NUM_14
+#define PIN_CS_SDI  GPIO_NUM_26
+#define PIN_CS_SD   GPIO_NUM_25
 
 #define SCI_FREQ         250000
-#define SPI_FREQ         250000
+#define SDI_FREQ        8000000
 
 #define CMD_WRITE          0x02
 #define CMD_READ           0x03
