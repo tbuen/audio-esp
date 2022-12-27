@@ -2,10 +2,10 @@
 
 #include "stdbool.h"
 
-typedef struct _track {
-    char *filename;
-    struct _track *next;
-} audio_track;
+typedef struct _file {
+    char *name;
+    struct _file *next;
+} file_t;
 
 typedef struct {
     int left;
@@ -14,8 +14,8 @@ typedef struct {
 
 void audio_init(void);
 
-const audio_track *audio_get_tracks(void);
-void audio_release_tracks(void);
+const file_t *audio_get_files(void);
+void audio_free_files(file_t *file);
 
 void audio_volume(volume_t *vol, bool set);
 

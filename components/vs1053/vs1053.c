@@ -99,7 +99,7 @@ esp_err_t vs_init(void) {
 
     // read status
     uint16_t status = sci_read(sci_handle, REG_STATUS);
-    ESP_LOGD(TAG, "status: 0x%04x\n", status);
+    ESP_LOGD(TAG, "status: 0x%04x", status);
     if (((status & 0xF0) >> 4) == 4) {
         ESP_LOGI(TAG, "init ok");
         initialized = true;
