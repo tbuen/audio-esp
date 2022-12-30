@@ -1,6 +1,6 @@
 #include "esp_log.h"
 #include "esp_wifi.h"
-//#include "nvs_flash.h"
+#include "mdns.h"
 #include "string.h"
 
 #include "message.h"
@@ -40,17 +40,10 @@ void wlan_init(QueueHandle_t q) {
 
     request_queue = xQueueCreate(5, sizeof(request_t));
 
-    /*esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);*/
-
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_t *intf_ap = esp_netif_create_default_wifi_ap();
-    esp_netif_create_default_wifi_sta();
+    esp_netif_t *intf_sta = esp_netif_create_default_wifi_sta();
 
     esp_netif_ip_info_t ip_info;
     esp_netif_get_ip_info(intf_ap, &ip_info);
@@ -61,6 +54,13 @@ void wlan_init(QueueHandle_t q) {
 
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wlan_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &wlan_event_handler, NULL, NULL));
+
+    ESP_ERROR_CHECK(esp_netif_set_hostname(intf_ap, "esp32"));
+    ESP_ERROR_CHECK(esp_netif_set_hostname(intf_sta, "esp32"));
+
+    ESP_ERROR_CHECK(mdns_init());
+    ESP_ERROR_CHECK(mdns_hostname_set("esp32"));
+    ESP_ERROR_CHECK(mdns_service_add("audio-esp", "_http", "_tcp", 80, NULL, 0));
 
     if (xTaskCreatePinnedToCore(&wlan_task, "wlan-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
         ESP_LOGE(TAG, "could not create task");
