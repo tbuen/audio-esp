@@ -17,7 +17,7 @@ static httpd_handle_t server = NULL;
 static QueueHandle_t queue;
 
 static const httpd_uri_t websocket = {
-    .uri = "/ws",
+    .uri = "/websocket",
     .method = HTTP_GET,
     .handler = &websocket_handler,
     .user_ctx = NULL,
@@ -50,6 +50,24 @@ void http_start(void) {
 void http_stop(void) {
     if (!server) return;
 
+    size_t fds = HTTP_MAX_SOCKETS;
+    int client_fds[HTTP_MAX_SOCKETS];
+    ESP_ERROR_CHECK(httpd_get_client_list(server, &fds, client_fds));
+
+    for (size_t i = 0; i < fds; ++i) {
+        if (httpd_ws_get_fd_info(server, client_fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET) {
+            httpd_ws_frame_t ws_pkt = {
+                .final = true,
+                .fragmented = false,
+                .type = HTTPD_WS_TYPE_CLOSE,
+                .payload = NULL,
+                .len = 0
+            };
+            httpd_ws_send_data(server, client_fds[i], &ws_pkt);
+        }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(100));
     httpd_stop(server);
     server = NULL;
 

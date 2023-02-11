@@ -73,6 +73,7 @@ void app_main(void) {
                         } else {
                             wlan_mode = WLAN_MODE_STA;
                         }
+                        http_stop();
                         wlan_set_mode(wlan_mode);
                     }
                     break;
