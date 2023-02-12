@@ -60,7 +60,7 @@ void wlan_init(QueueHandle_t q) {
 
     ESP_ERROR_CHECK(mdns_init());
     ESP_ERROR_CHECK(mdns_hostname_set("esp32"));
-    ESP_ERROR_CHECK(mdns_service_add("audio-esp", "_http", "_tcp", 80, NULL, 0));
+    ESP_ERROR_CHECK(mdns_service_add("audio-esp", "_audio-jsonrpc-ws", "_tcp", 80, NULL, 0));
 
     if (xTaskCreatePinnedToCore(&wlan_task, "wlan-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
         ESP_LOGE(TAG, "could not create task");
