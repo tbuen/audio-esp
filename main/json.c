@@ -7,6 +7,7 @@
 #include "json.h"
 
 #define JSON_NO_ERROR              0
+#define JSON_DEFER_RESPONSE       -1
 #define JSON_PARSE_ERROR      -32700
 #define JSON_INVALID_REQUEST  -32600
 #define JSON_METHOD_NOT_FOUND -32601
@@ -25,14 +26,16 @@ static void json_send_error(int sockfd, int16_t code, uint32_t id);
 static char *json_error_message(int16_t code);
 static int16_t method_get_info(const cJSON *params, cJSON **result);
 static int16_t method_add_wifi(const cJSON *params, cJSON **result);
+static int16_t method_get_file_list(const cJSON *params, cJSON **result);
 
 static const char *TAG = "json";
 
 static QueueHandle_t queue;
 
 static method_entry_t method_table[] = {
-    { "get-info", &method_get_info },
-    { "add-wifi", &method_add_wifi }
+    { "get-info",      &method_get_info },
+    { "add-wifi",      &method_add_wifi },
+    { "get-file-list", &method_get_file_list },
 };
 
 void json_init(QueueHandle_t q) {
@@ -73,7 +76,8 @@ void json_recv(int sockfd, const char *rpc) {
         cJSON_Delete(req);
     }
 
-    if (error == JSON_NO_ERROR) {
+    /*if (error == JSON_DEFER_RESPONSE) {
+    } else*/ if (error == JSON_NO_ERROR) {
         json_send_result(sockfd, result, id);
     } else {
         json_send_error(sockfd, error, id);
@@ -181,6 +185,13 @@ static int16_t method_add_wifi(const cJSON *params, cJSON **result) {
     } else {
         return JSON_INVALID_PARAMS;
     }
+}
+
+static int16_t method_get_file_list(const cJSON *params, cJSON **result) {
+    *result = cJSON_CreateArray();
+    message_t msg = { BASE_JSON, EVENT_JSON_GET_FILE_LIST, NULL };
+    xQueueSendToBack(queue, &msg, 0);
+    return JSON_NO_ERROR;
 }
 
 /*

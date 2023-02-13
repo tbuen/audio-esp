@@ -24,6 +24,7 @@ static void connect(void);
 static void handle_wlan_event(message_t *msg);
 static void handle_http_event(message_t *msg);
 static void handle_json_event(message_t *msg);
+static void handle_audio_event(message_t *msg);
 
 static const char *TAG = "main";
 
@@ -55,7 +56,7 @@ void app_main(void) {
 
     button_init(queue);
     led_init();
-    audio_init();
+    audio_init(queue);
     wlan_init(queue);
     http_init(queue);
     json_init(queue);
@@ -85,6 +86,9 @@ void app_main(void) {
                     break;
                 case BASE_JSON:
                     handle_json_event(&msg);
+                    break;
+                case BASE_AUDIO:
+                    handle_audio_event(&msg);
                     break;
                 default:
                     break;
@@ -210,6 +214,22 @@ static void handle_json_event(message_t *msg) {
                 } else {
                     ESP_LOGW(TAG, "could not open %s", WIFI_CFG_FILE);
                 }
+            }
+            break;
+        case EVENT_JSON_GET_FILE_LIST:
+            audio_get_file_list();
+            break;
+        default:
+            break;
+    }
+}
+
+static void handle_audio_event(message_t *msg) {
+    switch (msg->event) {
+        case EVENT_AUDIO_FILE_LIST:
+            if (msg->data) {
+                audio_msg_t *audio_msg = (audio_msg_t*)msg->data;
+                ESP_LOGW(TAG, "received file list msg: %d", audio_msg->error);
             }
             break;
         default:
