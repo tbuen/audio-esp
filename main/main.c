@@ -217,7 +217,10 @@ static void handle_json_event(message_t *msg) {
             }
             break;
         case EVENT_JSON_GET_FILE_LIST:
-            audio_get_file_list();
+            if (msg->data) {
+                json_msg_t *json_msg = (json_msg_t*)msg->data;
+                audio_get_file_list(json_msg->ctx);
+            }
             break;
         default:
             break;
@@ -230,6 +233,16 @@ static void handle_audio_event(message_t *msg) {
             if (msg->data) {
                 audio_msg_t *audio_msg = (audio_msg_t*)msg->data;
                 ESP_LOGW(TAG, "received file list msg: %d", audio_msg->error);
+                for (int i = 0; i < audio_msg->file_list.cnt; ++i) {
+                    ESP_LOGW(TAG, "file name: %s", audio_msg->file_list.file[i].name);
+                }
+                json_send_file_list(&audio_msg->file_list, audio_msg->ctx);
+                for (int i = 0; i < audio_msg->file_list.cnt; ++i) {
+                    free(audio_msg->file_list.file[i].name);
+                }
+                if (audio_msg->ctx) {
+                    free(audio_msg->ctx);
+                }
             }
             break;
         default:

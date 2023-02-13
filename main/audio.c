@@ -17,9 +17,16 @@
 #define TASK_PRIO     19
 #define STACK_SIZE  4096
 
-#define REQ_GET_FILE_LIST   1
-
 static const char *TAG = "audio";
+
+typedef enum {
+    REQ_GET_FILE_LIST
+} req_t;
+
+typedef struct {
+    req_t req;
+    rpc_ctx_t *ctx;
+} req_msg_t;
 
 static TaskHandle_t handle;
 static QueueHandle_t queue;
@@ -30,7 +37,6 @@ static char *file2play;
 
 static void audio_task(void *param);
 static audio_error_t read_dir(const char *path, audio_file_list_t *list);
-static audio_error_t read_dir2(const char *path, audio_file_t **files);
 
 void audio_init(QueueHandle_t q) {
     if (handle) return;
@@ -39,15 +45,15 @@ void audio_init(QueueHandle_t q) {
 
     mutex = xSemaphoreCreateMutex();
 
-    request_queue = xQueueCreate(5, sizeof(uint32_t));
+    request_queue = xQueueCreate(5, sizeof(req_msg_t));
 
     if (xTaskCreatePinnedToCore(&audio_task, "audio-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
         ESP_LOGE(TAG, "could not create task");
     }
 }
 
-void audio_get_file_list(void) {
-    uint32_t req = REQ_GET_FILE_LIST;
+void audio_get_file_list(rpc_ctx_t *ctx) {
+    req_msg_t req = { REQ_GET_FILE_LIST, ctx };
     xQueueSendToBack(request_queue, &req, 0);
 }
 
@@ -103,7 +109,7 @@ bool audio_play(const char *filename) {
 static void audio_task(void *param) {
     const char *path = "/sdcard";
     esp_err_t res = ESP_FAIL;
-    uint32_t req;
+    req_msg_t req;
 
     vs_init();
     vs_set_volume(0x1414);
@@ -115,9 +121,10 @@ static void audio_task(void *param) {
             }
 
             // TODO: repeat if fails for the first time
-            if (req == REQ_GET_FILE_LIST) {
+            if (req.req == REQ_GET_FILE_LIST) {
                 if (res == ESP_OK) {
                     audio_msg_t *audio_msg = calloc(1, sizeof(audio_msg_t));
+                    audio_msg->ctx = req.ctx;
                     audio_msg->error = read_dir(path, &audio_msg->file_list);
                     message_t msg = { BASE_AUDIO, EVENT_AUDIO_FILE_LIST, audio_msg };
                     xQueueSendToBack(queue, &msg, 0);
@@ -161,12 +168,6 @@ static void audio_task(void *param) {
 
 //static esp_err_t read_dir(const char *path, file_t **files) {
 static audio_error_t read_dir(const char *path, audio_file_list_t *list) {
-    return read_dir2(path, &list->file);
-}
-
-static audio_error_t read_dir2(const char *path, audio_file_t **files) {
-    *files = NULL;
-
     DIR *dir = opendir(path);
     if (!dir) {
         ESP_LOGE(TAG, "error opening directory");
@@ -185,16 +186,17 @@ static audio_error_t read_dir2(const char *path, audio_file_t **files) {
         if (entry) {
             if (entry->d_type == DT_REG) {
                 ESP_LOGI(TAG, "File found: %s", entry->d_name);
-                *files = calloc(1, sizeof(audio_file_t));
-                asprintf(&(*files)->name, "%s/%s", path, entry->d_name);
-                files = &(*files)->next;
+                if (list->cnt < FILE_LIST_SIZE) {
+                    asprintf(&list->file[list->cnt].name, "%s/%s", path, entry->d_name);
+                    list->cnt++;
+                } else {
+                    res = ERROR_AUDIO_LIST_FULL;
+                    break;
+                }
             } else if (entry->d_type == DT_DIR) {
                 char *p;
                 asprintf(&p, "%s/%s", path, entry->d_name);
-                res = read_dir(p, files);
-                while (*files) {
-                    files = &(*files)->next;
-                }
+                res = read_dir(p, list);
                 free(p);
             }
         }

@@ -14,7 +14,7 @@
 #define JSON_INVALID_PARAMS   -32602
 #define JSON_INTERNAL_ERROR   -32603
 
-typedef int16_t (*method_handler)(const cJSON *params, cJSON **result);
+typedef int16_t (*method_handler)(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
 
 typedef struct {
     char *method;
@@ -24,9 +24,9 @@ typedef struct {
 static void json_send_result(int sockfd, cJSON *result, uint32_t id);
 static void json_send_error(int sockfd, int16_t code, uint32_t id);
 static char *json_error_message(int16_t code);
-static int16_t method_get_info(const cJSON *params, cJSON **result);
-static int16_t method_add_wifi(const cJSON *params, cJSON **result);
-static int16_t method_get_file_list(const cJSON *params, cJSON **result);
+static int16_t method_get_info(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
+static int16_t method_add_wifi(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
+static int16_t method_get_file_list(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
 
 static const char *TAG = "json";
 
@@ -68,7 +68,7 @@ void json_recv(int sockfd, const char *rpc) {
             error = JSON_METHOD_NOT_FOUND;
             for (int i = 0; i < sizeof(method_table)/sizeof(method_entry_t); ++i) {
                 if (!strcmp(method->valuestring, method_table[i].method)) {
-                    error = method_table[i].handler(params, &result);
+                    error = method_table[i].handler(params, &result, sockfd, id);
                     break;
                 }
             }
@@ -76,12 +76,23 @@ void json_recv(int sockfd, const char *rpc) {
         cJSON_Delete(req);
     }
 
-    /*if (error == JSON_DEFER_RESPONSE) {
-    } else*/ if (error == JSON_NO_ERROR) {
+    if (error == JSON_DEFER_RESPONSE) {
+    } else if (error == JSON_NO_ERROR) {
         json_send_result(sockfd, result, id);
     } else {
         json_send_error(sockfd, error, id);
     }
+}
+
+void json_send_file_list(const audio_file_list_t *list, const rpc_ctx_t *ctx) {
+    cJSON *result = cJSON_CreateArray();
+
+    for (int i = 0; i < list->cnt; ++i) {
+        cJSON *f = cJSON_CreateString(list->file[i].name);
+        cJSON_AddItemToArray(result, f);
+    }
+
+    json_send_result(ctx->sockfd, result, ctx->id);
 }
 
 static void json_send_result(int sockfd, cJSON *result, uint32_t id) {
@@ -153,7 +164,7 @@ static char *json_error_message(int16_t code) {
     return ret;
 }
 
-static int16_t method_get_info(const cJSON *params, cJSON **result) {
+static int16_t method_get_info(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
     const esp_app_desc_t *app = esp_ota_get_app_description();
 
     *result = cJSON_CreateObject();
@@ -165,7 +176,7 @@ static int16_t method_get_info(const cJSON *params, cJSON **result) {
     return JSON_NO_ERROR;
 }
 
-static int16_t method_add_wifi(const cJSON *params, cJSON **result) {
+static int16_t method_add_wifi(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
     cJSON *ssid = cJSON_GetObjectItemCaseSensitive(params, "ssid");
     cJSON *password = cJSON_GetObjectItemCaseSensitive(params, "password");
 
@@ -187,34 +198,18 @@ static int16_t method_add_wifi(const cJSON *params, cJSON **result) {
     }
 }
 
-static int16_t method_get_file_list(const cJSON *params, cJSON **result) {
+static int16_t method_get_file_list(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
     *result = cJSON_CreateArray();
-    message_t msg = { BASE_JSON, EVENT_JSON_GET_FILE_LIST, NULL };
+    json_msg_t *json_msg = calloc(1, sizeof(json_msg_t));
+    json_msg->ctx = calloc(1, sizeof(rpc_ctx_t));
+    json_msg->ctx->sockfd = sockfd;
+    json_msg->ctx->id = id;
+    message_t msg = { BASE_JSON, EVENT_JSON_GET_FILE_LIST, json_msg };
     xQueueSendToBack(queue, &msg, 0);
-    return JSON_NO_ERROR;
+    return JSON_DEFER_RESPONSE;
 }
 
 /*
-char *json_get_files(void) {
-    const file_t *file = audio_get_files();
-    char *string;
-
-    cJSON *resp = cJSON_CreateArray();
-
-    while (file) {
-        cJSON *f = cJSON_CreateString(file->name);
-        cJSON_AddItemToArray(resp, f);
-        file = file->next;
-    }
-
-    string = cJSON_PrintUnformatted(resp);
-    cJSON_Delete(resp);
-
-    audio_free_files(file);
-
-    return string;
-}
-
 char *json_get_volume(void) {
     volume_t vol;
     audio_volume(&vol, false);

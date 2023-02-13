@@ -1,5 +1,9 @@
 #pragma once
 
+#define FILE_LIST_SIZE  100
+
+// TODO rename according to event_t
+
 typedef enum {
     BASE_BUTTON,
     BASE_WLAN,
@@ -49,21 +53,33 @@ typedef struct {
     uint8_t password[64];
 } wifi_msg_t;
 
+typedef struct {
+    int sockfd;
+    uint32_t id;
+} rpc_ctx_t;
+
+typedef struct {
+    rpc_ctx_t *ctx;
+} json_msg_t;
+
 typedef struct _audio_file {
     char *name;
-    struct _audio_file *next;
 } audio_file_t;
 
 typedef struct {
-    audio_file_t *file;
+    uint8_t cnt;
+    audio_file_t file[FILE_LIST_SIZE];
 } audio_file_list_t;
 
 typedef enum {
     ERROR_AUDIO_SUCCESS,
-    ERROR_AUDIO_FAILURE
+    ERROR_AUDIO_FAILURE,
+    ERROR_AUDIO_LIST_FULL
 } audio_error_t;
 
+// TODO rename, union weg
 typedef struct {
+    rpc_ctx_t *ctx;
     audio_error_t error;
     union {
         audio_file_list_t file_list;

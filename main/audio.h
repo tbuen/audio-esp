@@ -9,8 +9,7 @@ typedef struct {
 } volume_t;
 
 void audio_init(QueueHandle_t q);
-
-void audio_get_file_list(void);
+void audio_get_file_list(rpc_ctx_t *ctx);
 
 void audio_volume(volume_t *vol, bool set);
 
