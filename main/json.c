@@ -24,7 +24,7 @@ typedef struct {
 static void json_send_result(int sockfd, cJSON *result, uint32_t id);
 static void json_send_error(int sockfd, int16_t code, uint32_t id);
 static char *json_error_message(int16_t code);
-static int16_t method_get_info(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
+static int16_t method_get_version(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
 static int16_t method_add_wifi(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
 static int16_t method_get_file_list(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
 
@@ -33,7 +33,7 @@ static const char *TAG = "json";
 static QueueHandle_t queue;
 
 static method_entry_t method_table[] = {
-    { "get-info",      &method_get_info },
+    { "get-version",   &method_get_version },
     { "add-wifi",      &method_add_wifi },
     { "get-file-list", &method_get_file_list },
 };
@@ -164,7 +164,7 @@ static char *json_error_message(int16_t code) {
     return ret;
 }
 
-static int16_t method_get_info(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
+static int16_t method_get_version(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
     const esp_app_desc_t *app = esp_ota_get_app_description();
 
     *result = cJSON_CreateObject();

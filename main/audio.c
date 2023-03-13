@@ -17,6 +17,8 @@
 #define TASK_PRIO     19
 #define STACK_SIZE  4096
 
+#define MOUNT_POINT "/sdcard"
+
 static const char *TAG = "audio";
 
 typedef enum {
@@ -107,7 +109,6 @@ bool audio_play(const char *filename) {
 //static uint8_t data[4096];
 
 static void audio_task(void *param) {
-    const char *path = "/sdcard";
     esp_err_t res = ESP_FAIL;
     req_msg_t req;
 
@@ -117,7 +118,7 @@ static void audio_task(void *param) {
     for (;;) {
         if (xQueueReceive(request_queue, &req, pdMS_TO_TICKS(100)) == pdTRUE) {
             if (res == ESP_FAIL) {
-                res = vs_card_init(path);
+                res = vs_card_init(MOUNT_POINT);
             }
 
             // TODO: repeat if fails for the first time
@@ -125,7 +126,7 @@ static void audio_task(void *param) {
                 if (res == ESP_OK) {
                     audio_msg_t *audio_msg = calloc(1, sizeof(audio_msg_t));
                     audio_msg->ctx = req.ctx;
-                    audio_msg->error = read_dir(path, &audio_msg->file_list);
+                    audio_msg->error = read_dir(MOUNT_POINT, &audio_msg->file_list);
                     message_t msg = { BASE_AUDIO, EVENT_AUDIO_FILE_LIST, audio_msg };
                     xQueueSendToBack(queue, &msg, 0);
                 }
@@ -166,7 +167,6 @@ static void audio_task(void *param) {
     }
 }
 
-//static esp_err_t read_dir(const char *path, file_t **files) {
 static audio_error_t read_dir(const char *path, audio_file_list_t *list) {
     DIR *dir = opendir(path);
     if (!dir) {
@@ -187,7 +187,7 @@ static audio_error_t read_dir(const char *path, audio_file_list_t *list) {
             if (entry->d_type == DT_REG) {
                 ESP_LOGI(TAG, "File found: %s", entry->d_name);
                 if (list->cnt < FILE_LIST_SIZE) {
-                    asprintf(&list->file[list->cnt].name, "%s/%s", path, entry->d_name);
+                    asprintf(&list->file[list->cnt].name, "%s/%s", &path[strlen(MOUNT_POINT)], entry->d_name);
                     list->cnt++;
                 } else {
                     res = ERROR_AUDIO_LIST_FULL;
