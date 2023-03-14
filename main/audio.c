@@ -27,7 +27,7 @@ typedef enum {
 
 typedef struct {
     req_t req;
-    rpc_ctx_t *ctx;
+    void *ctx;
 } req_msg_t;
 
 static TaskHandle_t handle;
@@ -54,32 +54,10 @@ void audio_init(QueueHandle_t q) {
     }
 }
 
-void audio_get_file_list(rpc_ctx_t *ctx) {
+void audio_get_file_list(void *ctx) {
     req_msg_t req = { REQ_GET_FILE_LIST, ctx };
     xQueueSendToBack(request_queue, &req, 0);
 }
-
-/*const file_t *audio_get_files(void) {
-    uint32_t msg = MSG_FILES;
-
-    if (   (xQueueSendToBack(request_queue, &msg, 0) == pdTRUE)
-        && (xQueueReceive(response_queue, &msg, portMAX_DELAY) == pdTRUE)) {
-        return (file_t *)msg;
-    }
-
-    return NULL;
-}
-
-void audio_free_files(file_t *file) {
-    while (file) {
-        file_t *tmp = file;
-        file = tmp->next;
-        free(tmp->name);
-        free(tmp);
-    }
-}*/
-
-// TODO audio_free_files()
 
 // TODO call vs_* only in task
 void audio_volume(volume_t *vol, bool set) {
@@ -110,24 +88,24 @@ bool audio_play(const char *filename) {
 
 static void audio_task(void *param) {
     esp_err_t res = ESP_FAIL;
-    req_msg_t req;
+    req_msg_t msg;
 
     vs_init();
     vs_set_volume(0x1414);
 
     for (;;) {
-        if (xQueueReceive(request_queue, &req, pdMS_TO_TICKS(100)) == pdTRUE) {
+        if (xQueueReceive(request_queue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
             if (res == ESP_FAIL) {
                 res = vs_card_init(MOUNT_POINT);
             }
 
             // TODO: repeat if fails for the first time
-            if (req.req == REQ_GET_FILE_LIST) {
+            if (msg.req == REQ_GET_FILE_LIST) {
                 if (res == ESP_OK) {
-                    audio_msg_t *audio_msg = calloc(1, sizeof(audio_msg_t));
-                    audio_msg->ctx = req.ctx;
-                    audio_msg->error = read_dir(MOUNT_POINT, &audio_msg->file_list);
-                    message_t msg = { BASE_AUDIO, EVENT_AUDIO_FILE_LIST, audio_msg };
+                    msg_audio_file_list_t *msg_data = calloc(1, sizeof(msg_audio_file_list_t));
+                    msg_data->ctx = msg.ctx;
+                    msg_data->error = read_dir(MOUNT_POINT, &msg_data->file_list);
+                    message_t msg = { BASE_AUDIO, EVENT_AUDIO_FILE_LIST, msg_data };
                     xQueueSendToBack(queue, &msg, 0);
                 }
             }
@@ -187,7 +165,7 @@ static audio_error_t read_dir(const char *path, audio_file_list_t *list) {
             if (entry->d_type == DT_REG) {
                 ESP_LOGI(TAG, "File found: %s", entry->d_name);
                 if (list->cnt < FILE_LIST_SIZE) {
-                    asprintf(&list->file[list->cnt].name, "%s/%s", &path[strlen(MOUNT_POINT)], entry->d_name);
+                    asprintf(&list->files[list->cnt].name, "%s/%s", &path[strlen(MOUNT_POINT)], entry->d_name);
                     list->cnt++;
                 } else {
                     res = ERROR_AUDIO_LIST_FULL;

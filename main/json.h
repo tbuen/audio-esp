@@ -5,4 +5,4 @@
 
 void json_init(QueueHandle_t q);
 void json_recv(int sockfd, const char *rpc);
-void json_send_file_list(const audio_file_list_t *list, const rpc_ctx_t *ctx);
+void json_send_file_list(const void *ctx, const audio_file_list_t *list);

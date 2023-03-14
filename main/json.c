@@ -17,6 +17,11 @@
 typedef int16_t (*method_handler)(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
 
 typedef struct {
+    int sockfd;
+    uint32_t id;
+} rpc_ctx_t;
+
+typedef struct {
     char *method;
     method_handler handler;
 } method_entry_t;
@@ -84,15 +89,15 @@ void json_recv(int sockfd, const char *rpc) {
     }
 }
 
-void json_send_file_list(const audio_file_list_t *list, const rpc_ctx_t *ctx) {
+void json_send_file_list(const void *ctx, const audio_file_list_t *list) {
     cJSON *result = cJSON_CreateArray();
 
     for (int i = 0; i < list->cnt; ++i) {
-        cJSON *f = cJSON_CreateString(list->file[i].name);
+        cJSON *f = cJSON_CreateString(list->files[i].name);
         cJSON_AddItemToArray(result, f);
     }
 
-    json_send_result(ctx->sockfd, result, ctx->id);
+    json_send_result(((rpc_ctx_t*)ctx)->sockfd, result, ((rpc_ctx_t*)ctx)->id);
 }
 
 static void json_send_result(int sockfd, cJSON *result, uint32_t id) {
@@ -106,10 +111,10 @@ static void json_send_result(int sockfd, cJSON *result, uint32_t id) {
     cJSON_Delete(resp);
     if (rpc) {
         ESP_LOGI(TAG, "send: %s", rpc);
-        http_msg_t *http_msg = malloc(sizeof(http_msg_t));
-        http_msg->sockfd = sockfd;
-        http_msg->text = rpc;
-        message_t msg = { BASE_JSON, EVENT_JSON_SEND, http_msg };
+        msg_json_send_t *msg_data = malloc(sizeof(msg_json_send_t));
+        msg_data->sockfd = sockfd;
+        msg_data->text = rpc;
+        message_t msg = { BASE_JSON, EVENT_JSON_SEND, msg_data };
         xQueueSendToBack(queue, &msg, 0);
     }
 }
@@ -132,10 +137,10 @@ static void json_send_error(int sockfd, int16_t code, uint32_t id) {
     cJSON_Delete(resp);
     if (rpc) {
         ESP_LOGI(TAG, "send: %s", rpc);
-        http_msg_t *http_msg = malloc(sizeof(http_msg_t));
-        http_msg->sockfd = sockfd;
-        http_msg->text = rpc;
-        message_t msg = { BASE_JSON, EVENT_JSON_SEND, http_msg };
+        msg_json_send_t *msg_data = malloc(sizeof(msg_json_send_t));
+        msg_data->sockfd = sockfd;
+        msg_data->text = rpc;
+        message_t msg = { BASE_JSON, EVENT_JSON_SEND, msg_data };
         xQueueSendToBack(queue, &msg, 0);
     }
 }
@@ -200,11 +205,11 @@ static int16_t method_add_wifi(const cJSON *params, cJSON **result, int sockfd, 
 
 static int16_t method_get_file_list(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
     *result = cJSON_CreateArray();
-    json_msg_t *json_msg = calloc(1, sizeof(json_msg_t));
-    json_msg->ctx = calloc(1, sizeof(rpc_ctx_t));
-    json_msg->ctx->sockfd = sockfd;
-    json_msg->ctx->id = id;
-    message_t msg = { BASE_JSON, EVENT_JSON_GET_FILE_LIST, json_msg };
+    msg_json_get_file_list_t *msg_data = calloc(1, sizeof(msg_json_get_file_list_t));
+    msg_data->ctx = calloc(1, sizeof(rpc_ctx_t));
+    ((rpc_ctx_t*)msg_data->ctx)->sockfd = sockfd;
+    ((rpc_ctx_t*)msg_data->ctx)->id = id;
+    message_t msg = { BASE_JSON, EVENT_JSON_GET_FILE_LIST, msg_data };
     xQueueSendToBack(queue, &msg, 0);
     return JSON_DEFER_RESPONSE;
 }

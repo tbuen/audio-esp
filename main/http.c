@@ -138,10 +138,10 @@ static esp_err_t websocket_handler(httpd_req_t *req) {
                 return ret;
             }
 
-            http_msg_t *http_msg = malloc(sizeof(http_msg_t));
-            http_msg->sockfd = httpd_req_to_sockfd(req);
-            http_msg->text = (char*)buf;
-            message_t msg = { BASE_HTTP, EVENT_HTTP_RECV, http_msg };
+            msg_http_recv_t *msg_data = malloc(sizeof(msg_http_recv_t));
+            msg_data->sockfd = httpd_req_to_sockfd(req);
+            msg_data->text = (char*)buf;
+            message_t msg = { BASE_HTTP, EVENT_HTTP_RECV, msg_data };
             xQueueSendToBack(queue, &msg, 0);
         }
     }

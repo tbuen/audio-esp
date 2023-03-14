@@ -2,8 +2,6 @@
 
 #define FILE_LIST_SIZE  100
 
-// TODO rename according to event_t
-
 typedef enum {
     BASE_BUTTON,
     BASE_WLAN,
@@ -46,30 +44,22 @@ typedef struct {
 typedef struct {
     int sockfd;
     char *text;
-} http_msg_t;
+} msg_http_recv_t;
 
+typedef struct {
+    int sockfd;
+    char *text;
+} msg_json_send_t;
+
+// TODO
 typedef struct {
     uint8_t ssid[32];
     uint8_t password[64];
 } wifi_msg_t;
 
 typedef struct {
-    int sockfd;
-    uint32_t id;
-} rpc_ctx_t;
-
-typedef struct {
-    rpc_ctx_t *ctx;
-} json_msg_t;
-
-typedef struct _audio_file {
-    char *name;
-} audio_file_t;
-
-typedef struct {
-    uint8_t cnt;
-    audio_file_t file[FILE_LIST_SIZE];
-} audio_file_list_t;
+    void *ctx;
+} msg_json_get_file_list_t;
 
 typedef enum {
     ERROR_AUDIO_SUCCESS,
@@ -77,11 +67,17 @@ typedef enum {
     ERROR_AUDIO_LIST_FULL
 } audio_error_t;
 
-// TODO rename, union weg
 typedef struct {
-    rpc_ctx_t *ctx;
+    char *name;
+} audio_file_t;
+
+typedef struct {
+    uint8_t cnt;
+    audio_file_t files[FILE_LIST_SIZE];
+} audio_file_list_t;
+
+typedef struct {
+    void *ctx;
     audio_error_t error;
-    union {
-        audio_file_list_t file_list;
-    };
-} audio_msg_t;
+    audio_file_list_t file_list;
+} msg_audio_file_list_t;
