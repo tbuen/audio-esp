@@ -3,7 +3,6 @@
 #include "cJSON.h"
 #include "string.h"
 
-#include "message.h"
 #include "json.h"
 
 #define JSON_NO_ERROR              0
@@ -14,24 +13,19 @@
 #define JSON_INVALID_PARAMS   -32602
 #define JSON_INTERNAL_ERROR   -32603
 
-typedef int16_t (*method_handler)(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
-
-typedef struct {
-    int sockfd;
-    uint32_t id;
-} rpc_ctx_t;
+typedef int16_t (*method_handler)(const cJSON *params, cJSON **result, com_ctx_t *com_ctx);
 
 typedef struct {
     char *method;
     method_handler handler;
 } method_entry_t;
 
-static void json_send_result(int sockfd, cJSON *result, uint32_t id);
-static void json_send_error(int sockfd, int16_t code, uint32_t id);
+static void json_send_result(cJSON *result, audio_ctx_t *audio_ctx, com_ctx_t *com_ctx);
+static void json_send_error(int16_t code, com_ctx_t *com_ctx);
 static char *json_error_message(int16_t code);
-static int16_t method_get_version(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
-static int16_t method_add_wifi(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
-static int16_t method_get_file_list(const cJSON *params, cJSON **result, int sockfd, uint32_t id);
+static int16_t method_get_version(const cJSON *params, cJSON **result, com_ctx_t *com_ctx);
+static int16_t method_add_wifi(const cJSON *params, cJSON **result, com_ctx_t *com_ctx);
+static int16_t method_get_file_list(const cJSON *params, cJSON **result, com_ctx_t *com_ctx);
 
 static const char *TAG = "json";
 
@@ -47,13 +41,12 @@ void json_init(QueueHandle_t q) {
     queue = q;
 }
 
-void json_recv(int sockfd, const char *rpc) {
-    ESP_LOGI(TAG, "recv: %s", rpc);
+void json_recv(com_ctx_t *com_ctx, const char *text) {
+    ESP_LOGI(TAG, "recv: %s", text);
 
     int16_t error = JSON_PARSE_ERROR;
-    uint32_t id = 0;
 
-    cJSON *req = cJSON_Parse(rpc);
+    cJSON *req = cJSON_Parse(text);
     cJSON *result = NULL;
 
     if (req) {
@@ -61,19 +54,19 @@ void json_recv(int sockfd, const char *rpc) {
         cJSON *jsonrpc = cJSON_GetObjectItemCaseSensitive(req, "jsonrpc");
         cJSON *method = cJSON_GetObjectItemCaseSensitive(req, "method");
         cJSON *params = cJSON_GetObjectItemCaseSensitive(req, "params");
-        cJSON *cid = cJSON_GetObjectItemCaseSensitive(req, "id");
-        if (cJSON_IsNumber(cid)) {
-            id = cid->valueint;
+        cJSON *id = cJSON_GetObjectItemCaseSensitive(req, "id");
+        if (cJSON_IsNumber(id)) {
+            com_ctx->id = id->valueint;
         }
 
         if (   cJSON_IsString(jsonrpc)
             && !strcmp(jsonrpc->valuestring, "2.0")
             && cJSON_IsString(method)
-            && id) {
+            && com_ctx->id) {
             error = JSON_METHOD_NOT_FOUND;
             for (int i = 0; i < sizeof(method_table)/sizeof(method_entry_t); ++i) {
                 if (!strcmp(method->valuestring, method_table[i].method)) {
-                    error = method_table[i].handler(params, &result, sockfd, id);
+                    error = method_table[i].handler(params, &result, com_ctx);
                     break;
                 }
             }
@@ -83,13 +76,13 @@ void json_recv(int sockfd, const char *rpc) {
 
     if (error == JSON_DEFER_RESPONSE) {
     } else if (error == JSON_NO_ERROR) {
-        json_send_result(sockfd, result, id);
+        json_send_result(result, NULL, com_ctx);
     } else {
-        json_send_error(sockfd, error, id);
+        json_send_error(error, com_ctx);
     }
 }
 
-void json_send_file_list(const void *ctx, const audio_file_list_t *list) {
+void json_send_file_list(audio_ctx_t *audio_ctx, com_ctx_t *com_ctx, const audio_file_list_t *list) {
     cJSON *result = cJSON_CreateArray();
 
     for (int i = 0; i < list->cnt; ++i) {
@@ -97,29 +90,30 @@ void json_send_file_list(const void *ctx, const audio_file_list_t *list) {
         cJSON_AddItemToArray(result, f);
     }
 
-    json_send_result(((rpc_ctx_t*)ctx)->sockfd, result, ((rpc_ctx_t*)ctx)->id);
+    json_send_result(result, audio_ctx, com_ctx);
 }
 
-static void json_send_result(int sockfd, cJSON *result, uint32_t id) {
+static void json_send_result(cJSON *result, audio_ctx_t *audio_ctx, com_ctx_t *com_ctx) {
     cJSON *resp = cJSON_CreateObject();
 
     cJSON_AddStringToObject(resp, "jsonrpc", "2.0");
     cJSON_AddItemToObject(resp, "result", result);
-    cJSON_AddNumberToObject(resp, "id", id);
+    cJSON_AddNumberToObject(resp, "id", com_ctx->id);
 
-    char *rpc = cJSON_PrintUnformatted(resp);
+    char *text = cJSON_PrintUnformatted(resp);
     cJSON_Delete(resp);
-    if (rpc) {
-        ESP_LOGI(TAG, "send: %s", rpc);
-        msg_json_send_t *msg_data = malloc(sizeof(msg_json_send_t));
-        msg_data->sockfd = sockfd;
-        msg_data->text = rpc;
+    if (text) {
+        ESP_LOGI(TAG, "send: %s", text);
+        msg_json_send_t *msg_data = calloc(1, sizeof(msg_json_send_t));
+        msg_data->com_ctx = com_ctx;
+        msg_data->audio_ctx = audio_ctx;
+        msg_data->text = text;
         message_t msg = { BASE_JSON, EVENT_JSON_SEND, msg_data };
         xQueueSendToBack(queue, &msg, 0);
     }
 }
 
-static void json_send_error(int sockfd, int16_t code, uint32_t id) {
+static void json_send_error(int16_t code, com_ctx_t *com_ctx) {
     cJSON *resp = cJSON_CreateObject();
     cJSON *err = cJSON_CreateObject();
 
@@ -127,19 +121,19 @@ static void json_send_error(int sockfd, int16_t code, uint32_t id) {
     cJSON_AddItemToObject(resp, "error", err);
     cJSON_AddNumberToObject(err, "code", code);
     cJSON_AddStringToObject(err, "message", json_error_message(code));
-    if (id) {
-        cJSON_AddNumberToObject(resp, "id", id);
+    if (com_ctx->id) {
+        cJSON_AddNumberToObject(resp, "id", com_ctx->id);
     } else {
         cJSON_AddNullToObject(resp, "id");
     }
 
-    char *rpc = cJSON_PrintUnformatted(resp);
+    char *text = cJSON_PrintUnformatted(resp);
     cJSON_Delete(resp);
-    if (rpc) {
-        ESP_LOGI(TAG, "send: %s", rpc);
-        msg_json_send_t *msg_data = malloc(sizeof(msg_json_send_t));
-        msg_data->sockfd = sockfd;
-        msg_data->text = rpc;
+    if (text) {
+        ESP_LOGI(TAG, "send: %s", text);
+        msg_json_send_t *msg_data = calloc(1, sizeof(msg_json_send_t));
+        msg_data->com_ctx = com_ctx;
+        msg_data->text = text;
         message_t msg = { BASE_JSON, EVENT_JSON_SEND, msg_data };
         xQueueSendToBack(queue, &msg, 0);
     }
@@ -169,7 +163,7 @@ static char *json_error_message(int16_t code) {
     return ret;
 }
 
-static int16_t method_get_version(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
+static int16_t method_get_version(const cJSON *params, cJSON **result, com_ctx_t *com_ctx) {
     const esp_app_desc_t *app = esp_ota_get_app_description();
 
     *result = cJSON_CreateObject();
@@ -181,7 +175,7 @@ static int16_t method_get_version(const cJSON *params, cJSON **result, int sockf
     return JSON_NO_ERROR;
 }
 
-static int16_t method_add_wifi(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
+static int16_t method_add_wifi(const cJSON *params, cJSON **result, com_ctx_t *com_ctx) {
     cJSON *ssid = cJSON_GetObjectItemCaseSensitive(params, "ssid");
     cJSON *password = cJSON_GetObjectItemCaseSensitive(params, "password");
 
@@ -203,13 +197,14 @@ static int16_t method_add_wifi(const cJSON *params, cJSON **result, int sockfd, 
     }
 }
 
-static int16_t method_get_file_list(const cJSON *params, cJSON **result, int sockfd, uint32_t id) {
+static int16_t method_get_file_list(const cJSON *params, cJSON **result, com_ctx_t *com_ctx) {
     *result = cJSON_CreateArray();
-    msg_json_get_file_list_t *msg_data = calloc(1, sizeof(msg_json_get_file_list_t));
-    msg_data->ctx = calloc(1, sizeof(rpc_ctx_t));
-    ((rpc_ctx_t*)msg_data->ctx)->sockfd = sockfd;
-    ((rpc_ctx_t*)msg_data->ctx)->id = id;
-    message_t msg = { BASE_JSON, EVENT_JSON_GET_FILE_LIST, msg_data };
+    msg_json_audio_request_t *msg_data = calloc(1, sizeof(msg_json_audio_request_t));
+    msg_data->audio_ctx = calloc(1, sizeof(audio_ctx_t));
+    msg_data->audio_ctx->request = AUDIO_REQ_FILE_LIST;
+    msg_data->audio_ctx->start = true;
+    msg_data->com_ctx = com_ctx;
+    message_t msg = { BASE_JSON, EVENT_JSON_AUDIO_REQUEST, msg_data };
     xQueueSendToBack(queue, &msg, 0);
     return JSON_DEFER_RESPONSE;
 }

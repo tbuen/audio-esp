@@ -181,7 +181,7 @@ static void handle_http_event(message_t *msg) {
         case EVENT_HTTP_RECV:
             if (msg->data) {
                 msg_http_recv_t *msg_data = (msg_http_recv_t*)msg->data;
-                json_recv(msg_data->sockfd, msg_data->text);
+                json_recv(msg_data->com_ctx, msg_data->text);
                 free(msg_data->text);
             }
             break;
@@ -195,7 +195,34 @@ static void handle_json_event(message_t *msg) {
         case EVENT_JSON_SEND:
             if (msg->data) {
                 msg_json_send_t *msg_data = (msg_json_send_t*)msg->data;
-                http_send(msg_data->sockfd, msg_data->text);
+                if (msg_data->com_ctx) {
+                    if (http_send(msg_data->com_ctx->sockfd, msg_data->text)) {
+                        if (msg_data->audio_ctx) {
+                            msg_data->audio_ctx->start = false;
+                            if (msg_data->audio_ctx->stop) {
+                                ESP_LOGW(TAG, "send success, last chain -> free com_ctx and audio_ctx");
+                                free(msg_data->com_ctx);
+                                free(msg_data->audio_ctx);
+                            } else {
+                                ESP_LOGW(TAG, "send success, chain -> call audio request");
+                                audio_request(msg_data->com_ctx, msg_data->audio_ctx);
+                            }
+                        } else {
+                            ESP_LOGW(TAG, "send success, no chain -> free com_ctx");
+                            free(msg_data->com_ctx);
+                        }
+                    } else {
+                        ESP_LOGW(TAG, "send failed -> free com_ctx");
+                        free(msg_data->com_ctx);
+                        msg_data->com_ctx = NULL;
+                        if (msg_data->audio_ctx) {
+                            ESP_LOGW(TAG, "call audio request to clean up");
+                            msg_data->audio_ctx->start = false;
+                            msg_data->audio_ctx->stop = true;
+                            audio_request(msg_data->com_ctx, msg_data->audio_ctx);
+                        }
+                    }
+                }
                 free(msg_data->text);
             }
             break;
@@ -217,10 +244,10 @@ static void handle_json_event(message_t *msg) {
                 }
             }
             break;
-        case EVENT_JSON_GET_FILE_LIST:
+        case EVENT_JSON_AUDIO_REQUEST:
             if (msg->data) {
-                msg_json_get_file_list_t *msg_data = (msg_json_get_file_list_t*)msg->data;
-                audio_get_file_list(msg_data->ctx);
+                msg_json_audio_request_t *msg_data = (msg_json_audio_request_t*)msg->data;
+                audio_request(msg_data->com_ctx, msg_data->audio_ctx);
             }
             break;
         default:
@@ -233,16 +260,18 @@ static void handle_audio_event(message_t *msg) {
         case EVENT_AUDIO_FILE_LIST:
             if (msg->data) {
                 msg_audio_file_list_t *msg_data = (msg_audio_file_list_t*)msg->data;
-                ESP_LOGW(TAG, "received file list msg: %d", msg_data->error);
-                for (int i = 0; i < msg_data->file_list.cnt; ++i) {
-                    ESP_LOGW(TAG, "file name: %s", msg_data->file_list.files[i].name);
+                ESP_LOGW(TAG, "received file list msg - start: %d stop: %d", msg_data->audio_ctx->start, msg_data->audio_ctx->stop);
+                for (int i = 0; i < msg_data->list.cnt; ++i) {
+                    ESP_LOGW(TAG, "file name: %s", msg_data->list.files[i].name);
                 }
-                json_send_file_list(msg_data->ctx, &msg_data->file_list);
-                for (int i = 0; i < msg_data->file_list.cnt; ++i) {
-                    free(msg_data->file_list.files[i].name);
+                if (msg_data->com_ctx) {
+                    json_send_file_list(msg_data->audio_ctx, msg_data->com_ctx, &msg_data->list);
+                } else {
+                    ESP_LOGW(TAG, "audio cleaned up, no com_ctx -> free audio_ctx");
+                    free(msg_data->audio_ctx);
                 }
-                if (msg_data->ctx) {
-                    free(msg_data->ctx);
+                for (int i = 0; i < msg_data->list.cnt; ++i) {
+                    free(msg_data->list.files[i].name);
                 }
             }
             break;

@@ -30,7 +30,7 @@ typedef enum {
 
     EVENT_JSON_SEND,
     EVENT_JSON_ADD_WIFI,
-    EVENT_JSON_GET_FILE_LIST,
+    EVENT_JSON_AUDIO_REQUEST,
 
     EVENT_AUDIO_FILE_LIST
 } event_t;
@@ -43,11 +43,29 @@ typedef struct {
 
 typedef struct {
     int sockfd;
+    uint32_t id;
+    bool error;
+} com_ctx_t;
+
+typedef enum {
+    AUDIO_REQ_FILE_LIST
+} audio_request_t;
+
+typedef struct {
+    audio_request_t request;
+    bool start;
+    bool stop;
+    void *data;
+} audio_ctx_t;
+
+typedef struct {
+    com_ctx_t *com_ctx;
     char *text;
 } msg_http_recv_t;
 
 typedef struct {
-    int sockfd;
+    com_ctx_t *com_ctx;
+    audio_ctx_t *audio_ctx;
     char *text;
 } msg_json_send_t;
 
@@ -58,14 +76,9 @@ typedef struct {
 } wifi_msg_t;
 
 typedef struct {
-    void *ctx;
-} msg_json_get_file_list_t;
-
-typedef enum {
-    ERROR_AUDIO_SUCCESS,
-    ERROR_AUDIO_FAILURE,
-    ERROR_AUDIO_LIST_FULL
-} audio_error_t;
+    audio_ctx_t *audio_ctx;
+    com_ctx_t *com_ctx;
+} msg_json_audio_request_t;
 
 typedef struct {
     char *name;
@@ -77,7 +90,7 @@ typedef struct {
 } audio_file_list_t;
 
 typedef struct {
-    void *ctx;
-    audio_error_t error;
-    audio_file_list_t file_list;
+    audio_ctx_t *audio_ctx;
+    com_ctx_t *com_ctx;
+    audio_file_list_t list;
 } msg_audio_file_list_t;

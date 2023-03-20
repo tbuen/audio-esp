@@ -84,9 +84,9 @@ size_t http_get_number_of_clients(void) {
     return fds;
 }
 
-void http_send(int sockfd, char *text) {
-    if (!server) return;
-    if (httpd_ws_get_fd_info(server, sockfd) != HTTPD_WS_CLIENT_WEBSOCKET) return;
+bool http_send(int sockfd, char *text) {
+    if (!server) return false;
+    if (httpd_ws_get_fd_info(server, sockfd) != HTTPD_WS_CLIENT_WEBSOCKET) return false;
 
     httpd_ws_frame_t ws_pkt = {
         .final = true,
@@ -95,7 +95,7 @@ void http_send(int sockfd, char *text) {
         .payload = (uint8_t*)text,
         .len = strlen(text)
     };
-    httpd_ws_send_data(server, sockfd, &ws_pkt);
+    return httpd_ws_send_data(server, sockfd, &ws_pkt) == ESP_OK;
 }
 
 static void http_close_fn(httpd_handle_t hd, int sockfd) {
@@ -138,8 +138,9 @@ static esp_err_t websocket_handler(httpd_req_t *req) {
                 return ret;
             }
 
-            msg_http_recv_t *msg_data = malloc(sizeof(msg_http_recv_t));
-            msg_data->sockfd = httpd_req_to_sockfd(req);
+            msg_http_recv_t *msg_data = calloc(1, sizeof(msg_http_recv_t));
+            msg_data->com_ctx = calloc(1, sizeof(com_ctx_t));
+            msg_data->com_ctx->sockfd = httpd_req_to_sockfd(req);
             msg_data->text = (char*)buf;
             message_t msg = { BASE_HTTP, EVENT_HTTP_RECV, msg_data };
             xQueueSendToBack(queue, &msg, 0);
