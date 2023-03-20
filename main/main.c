@@ -8,6 +8,7 @@
 #include "audio.h"
 #include "wlan.h"
 #include "http.h"
+#include "context.h"
 #include "json.h"
 
 #define NUMBER_OF_WIFI_NETWORKS  5
@@ -23,6 +24,7 @@ typedef struct {
 static void connect(void);
 static void handle_wlan_event(message_t *msg);
 static void handle_http_event(message_t *msg);
+static void handle_context_event(message_t *msg);
 static void handle_json_event(message_t *msg);
 static void handle_audio_event(message_t *msg);
 
@@ -59,6 +61,7 @@ void app_main(void) {
     audio_init(queue);
     wlan_init(queue);
     http_init(queue);
+    context_init(queue);
     json_init(queue);
 
     wlan_set_mode(wlan_mode);
@@ -83,6 +86,9 @@ void app_main(void) {
                     break;
                 case BASE_HTTP:
                     handle_http_event(&msg);
+                    break;
+                case BASE_CONTEXT:
+                    handle_context_event(&msg);
                     break;
                 case BASE_JSON:
                     handle_json_event(&msg);
@@ -168,21 +174,28 @@ static void handle_wlan_event(message_t *msg) {
 
 static void handle_http_event(message_t *msg) {
     switch (msg->event) {
-        case EVENT_HTTP_CONNECT:
-            if (http_get_number_of_clients() > 0) {
-                led_set(LED_YELLOW, LED_ON);
-            }
-            break;
-        case EVENT_HTTP_DISCONNECT:
-            if (http_get_number_of_clients() == 0) {
-                led_set(LED_YELLOW, LED_OFF);
-            }
-            break;
         case EVENT_HTTP_RECV:
             if (msg->data) {
                 msg_http_recv_t *msg_data = (msg_http_recv_t*)msg->data;
                 json_recv(msg_data->com_ctx, msg_data->text);
                 free(msg_data->text);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+static void handle_context_event(message_t *msg) {
+    switch (msg->event) {
+        case EVENT_CONTEXT_CREATED:
+            if (context_count()) {
+                led_set(LED_YELLOW, LED_ON);
+            }
+            break;
+        case EVENT_CONTEXT_DELETED:
+            if (!context_count()) {
+                led_set(LED_YELLOW, LED_OFF);
             }
             break;
         default:

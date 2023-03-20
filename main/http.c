@@ -2,11 +2,11 @@
 #include "esp_log.h"
 #include "unistd.h"
 
+#include "config.h"
 #include "message.h"
 #include "json.h"
+#include "context.h"
 #include "http.h"
-
-#define HTTP_MAX_SOCKETS 4
 
 static void http_close_fn(httpd_handle_t hd, int sockfd);
 static esp_err_t websocket_handler(httpd_req_t *req);
@@ -33,7 +33,7 @@ void http_start(void) {
     if (server) return;
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_open_sockets = HTTP_MAX_SOCKETS;
+    config.max_open_sockets = MAX_CLIENT_CONNECTIONS;
     config.close_fn = &http_close_fn;
 
     if (httpd_start(&server, &config) == ESP_OK) {
@@ -50,8 +50,8 @@ void http_start(void) {
 void http_stop(void) {
     if (!server) return;
 
-    size_t fds = HTTP_MAX_SOCKETS;
-    int client_fds[HTTP_MAX_SOCKETS];
+    size_t fds = MAX_CLIENT_CONNECTIONS;
+    int client_fds[MAX_CLIENT_CONNECTIONS];
     ESP_ERROR_CHECK(httpd_get_client_list(server, &fds, client_fds));
 
     for (size_t i = 0; i < fds; ++i) {
@@ -74,16 +74,6 @@ void http_stop(void) {
     ESP_LOGI(TAG, "stopped");
 }
 
-size_t http_get_number_of_clients(void) {
-    if (!server) return 0;
-
-    size_t fds = HTTP_MAX_SOCKETS;
-    int client_fds[HTTP_MAX_SOCKETS];
-    ESP_ERROR_CHECK(httpd_get_client_list(server, &fds, client_fds));
-    ESP_LOGI(TAG, "open sockets: %d", fds);
-    return fds;
-}
-
 bool http_send(int sockfd, char *text) {
     if (!server) return false;
     if (httpd_ws_get_fd_info(server, sockfd) != HTTPD_WS_CLIENT_WEBSOCKET) return false;
@@ -101,15 +91,12 @@ bool http_send(int sockfd, char *text) {
 static void http_close_fn(httpd_handle_t hd, int sockfd) {
     ESP_LOGI(TAG, "close socket %d", sockfd);
     close(sockfd);
-    message_t msg = { BASE_HTTP, EVENT_HTTP_DISCONNECT, NULL };
-    xQueueSendToBack(queue, &msg, 0);
+    context_delete(sockfd);
 }
 
 static esp_err_t websocket_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
-        ESP_LOGI(TAG, "new connection, socket %d", httpd_req_to_sockfd(req));
-        message_t msg = { BASE_HTTP, EVENT_HTTP_CONNECT, NULL };
-        xQueueSendToBack(queue, &msg, 0);
+        context_create(httpd_req_to_sockfd(req));
         return ESP_OK;
     }
 

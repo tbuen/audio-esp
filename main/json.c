@@ -198,15 +198,19 @@ static int16_t method_add_wifi(const cJSON *params, cJSON **result, com_ctx_t *c
 }
 
 static int16_t method_get_file_list(const cJSON *params, cJSON **result, com_ctx_t *com_ctx) {
-    *result = cJSON_CreateArray();
-    msg_json_audio_request_t *msg_data = calloc(1, sizeof(msg_json_audio_request_t));
-    msg_data->audio_ctx = calloc(1, sizeof(audio_ctx_t));
-    msg_data->audio_ctx->request = AUDIO_REQ_FILE_LIST;
-    msg_data->audio_ctx->start = true;
-    msg_data->com_ctx = com_ctx;
-    message_t msg = { BASE_JSON, EVENT_JSON_AUDIO_REQUEST, msg_data };
-    xQueueSendToBack(queue, &msg, 0);
-    return JSON_DEFER_RESPONSE;
+    cJSON *start = cJSON_GetObjectItemCaseSensitive(params, "start");
+    if (!start || cJSON_IsBool(start)) {
+        msg_json_audio_request_t *msg_data = calloc(1, sizeof(msg_json_audio_request_t));
+        msg_data->audio_ctx = calloc(1, sizeof(audio_ctx_t));
+        msg_data->audio_ctx->request = AUDIO_REQ_FILE_LIST;
+        msg_data->audio_ctx->start = cJSON_IsTrue(start);
+        msg_data->com_ctx = com_ctx;
+        message_t msg = { BASE_JSON, EVENT_JSON_AUDIO_REQUEST, msg_data };
+        xQueueSendToBack(queue, &msg, 0);
+        return JSON_DEFER_RESPONSE;
+    } else {
+        return JSON_INVALID_PARAMS;
+    }
 }
 
 /*

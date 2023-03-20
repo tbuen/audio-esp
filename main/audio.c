@@ -2,7 +2,6 @@
 #include "esp_log.h"
 #include "fcntl.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "string.h"
 #include "sys/dirent.h"
@@ -39,7 +38,6 @@ typedef struct {
 static TaskHandle_t handle;
 static QueueHandle_t queue;
 static QueueHandle_t request_queue;
-static SemaphoreHandle_t mutex;
 
 static char *file2play;
 
@@ -50,8 +48,6 @@ void audio_init(QueueHandle_t q) {
     if (handle) return;
 
     queue = q;
-
-    mutex = xSemaphoreCreateMutex();
 
     request_queue = xQueueCreate(5, sizeof(req_msg_t));
 
