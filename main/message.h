@@ -1,19 +1,23 @@
 #pragma once
 
+#include "con.h"
+
 #define FILE_LIST_SIZE  100
 
 typedef enum {
     BASE_BUTTON,
     BASE_WLAN,
-    BASE_HTTP,
-    BASE_CONTEXT,
+    BASE_CON,
+    BASE_COM,
     BASE_JSON,
     BASE_AUDIO
 } base_t;
 
 typedef enum {
+    // BASE_BUTTON
     EVENT_BUTTON_PRESSED,
 
+    // BASE_WLAN
     EVENT_WLAN_AP_START,
     EVENT_WLAN_AP_STOP,
     EVENT_WLAN_AP_CONNECT,
@@ -25,16 +29,19 @@ typedef enum {
     EVENT_WLAN_GOT_IP,
     EVENT_WLAN_LOST_IP,
 
-    EVENT_HTTP_DISCONNECT,
-    EVENT_HTTP_RECV,
+    // BASE CON
+    EVENT_CONNECTED,
+    EVENT_DISCONNECTED,
 
-    EVENT_CONTEXT_CREATED,
-    EVENT_CONTEXT_DELETED,
+    // BASE_COM
+    EVENT_RECV,
+    EVENT_SEND,
 
-    EVENT_JSON_SEND,
+    // TODO BASE_JSON
     EVENT_JSON_ADD_WIFI,
-    EVENT_JSON_AUDIO_REQUEST,
 
+    // BASE_AUDIO
+    EVENT_AUDIO_REQUEST,
     EVENT_AUDIO_FILE_LIST
 } event_t;
 
@@ -45,32 +52,14 @@ typedef struct {
 } message_t;
 
 typedef struct {
-    int sockfd;
-    uint32_t id;
-    bool error;
-} com_ctx_t;
-
-typedef enum {
-    AUDIO_REQ_FILE_LIST
-} audio_request_t;
-
-typedef struct {
-    audio_request_t request;
-    bool start;
-    bool stop;
-    void *data;
-} audio_ctx_t;
-
-typedef struct {
-    com_ctx_t *com_ctx;
+    con_t con;
     char *text;
-} msg_http_recv_t;
+} msg_recv_t;
 
 typedef struct {
-    com_ctx_t *com_ctx;
-    audio_ctx_t *audio_ctx;
+    con_t con;
     char *text;
-} msg_json_send_t;
+} msg_send_t;
 
 // TODO
 typedef struct {
@@ -78,22 +67,31 @@ typedef struct {
     uint8_t password[64];
 } wifi_msg_t;
 
+typedef enum {
+    AUDIO_REQ_FILE_LIST
+} audio_request_t;
+
 typedef struct {
-    audio_ctx_t *audio_ctx;
-    com_ctx_t *com_ctx;
-} msg_json_audio_request_t;
+    con_t con;
+    uint32_t rpc_id;
+    audio_request_t request;
+    bool start;
+} msg_audio_request_t;
 
 typedef struct {
     char *name;
 } audio_file_t;
 
 typedef struct {
+    bool first;
+    bool last;
     uint8_t cnt;
-    audio_file_t files[FILE_LIST_SIZE];
+    audio_file_t file[FILE_LIST_SIZE];
 } audio_file_list_t;
 
 typedef struct {
-    audio_ctx_t *audio_ctx;
-    com_ctx_t *com_ctx;
+    con_t con;
+    uint32_t rpc_id;
+    int16_t error;
     audio_file_list_t list;
 } msg_audio_file_list_t;

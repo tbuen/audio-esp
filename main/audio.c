@@ -16,14 +16,10 @@
 #define STACK_SIZE  4096
 
 #define MOUNT_POINT "/sdcard"
-#define MAX_DEPTH   5
+#define MAX_DEPTH      5
+#define MAX_CONTEXT    2 // 10
 
 static const char *TAG = "audio";
-
-typedef struct {
-    com_ctx_t *com_ctx;
-    audio_ctx_t *audio_ctx;
-} req_msg_t;
 
 typedef struct {
     char *path;
@@ -31,34 +27,39 @@ typedef struct {
 } dir_t;
 
 typedef struct {
+    con_t con;
+    // TODO time
     dir_t dir[MAX_DEPTH];
     uint8_t idx;
-} ctx_data_t;
+} context_t;
 
 static TaskHandle_t handle;
 static QueueHandle_t queue;
 static QueueHandle_t request_queue;
 
+static context_t context[MAX_CONTEXT];
+
 static char *file2play;
 
 static void audio_task(void *param);
-static esp_err_t read_dir(audio_ctx_t *audio_ctx, audio_file_list_t *list);
+static context_t *get_context(con_t con, bool start);
+static void free_context(context_t *ctx);
+static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list_t *list);
 
 void audio_init(QueueHandle_t q) {
     if (handle) return;
 
     queue = q;
 
-    request_queue = xQueueCreate(5, sizeof(req_msg_t));
+    request_queue = xQueueCreate(10, sizeof(msg_audio_request_t));
 
     if (xTaskCreatePinnedToCore(&audio_task, "audio-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
         ESP_LOGE(TAG, "could not create task");
     }
 }
 
-void audio_request(com_ctx_t *com_ctx, audio_ctx_t *audio_ctx) {
-    req_msg_t req = { com_ctx, audio_ctx };
-    xQueueSendToBack(request_queue, &req, 0);
+void audio_request(const msg_audio_request_t *request) {
+    xQueueSendToBack(request_queue, request, 0);
 }
 
 // TODO call vs_* only in task
@@ -90,7 +91,7 @@ bool audio_play(const char *filename) {
 
 static void audio_task(void *param) {
     esp_err_t res = ESP_FAIL;
-    req_msg_t msg;
+    msg_audio_request_t msg;
 
     vs_init();
     vs_set_volume(0x1414);
@@ -101,16 +102,16 @@ static void audio_task(void *param) {
                 res = vs_card_init(MOUNT_POINT);
             }
 
-            switch (msg.audio_ctx->request) {
+            switch (msg.request) {
                 case AUDIO_REQ_FILE_LIST:
                     {
                         msg_audio_file_list_t *msg_data = calloc(1, sizeof(msg_audio_file_list_t));
-                        msg_data->com_ctx = msg.com_ctx;
-                        msg_data->audio_ctx = msg.audio_ctx;
+                        msg_data->con = msg.con;
+                        msg_data->rpc_id = msg.rpc_id;
                         if (res == ESP_OK) {
-                            res = read_dir(msg_data->audio_ctx, &msg_data->list);
+                            res = read_dir(msg.con, msg.start, &msg_data->error, &msg_data->list);
                         } else {
-                            msg_data->audio_ctx->stop = true;
+                            msg_data->error = AUDIO_IO_ERROR;
                         }
                         message_t msg = { BASE_AUDIO, EVENT_AUDIO_FILE_LIST, msg_data };
                         xQueueSendToBack(queue, &msg, 0);
@@ -154,36 +155,80 @@ static void audio_task(void *param) {
     }
 }
 
-static esp_err_t read_dir(audio_ctx_t *audio_ctx, audio_file_list_t *list) {
-    esp_err_t error = ESP_OK;
-    ctx_data_t *ctx = audio_ctx->data;
+static context_t *get_context(con_t con, bool start) {
+    context_t *ctx = NULL;
 
-    if (audio_ctx->start) {
-        ctx = calloc(1, sizeof(ctx_data_t));
-        audio_ctx->data = ctx;
-        asprintf(&ctx->dir[0].path, "%s", MOUNT_POINT);
-        ctx->dir[0].dir = opendir(ctx->dir[0].path);
-        if (!ctx->dir[0].dir) {
-            ESP_LOGE(TAG, "error opening directory %s", ctx->dir[0].path);
-            error = ESP_FAIL;
+    for (int i = 0; i < sizeof(context)/sizeof(context_t); ++i) {
+        if (context[i].con == con) {
+            ctx = &context[i];
+            if (start) {
+                free_context(ctx);
+            }
+            break;
+        } else if (start && !ctx && !context[i].con) {
+            ctx = &context[i];
         }
     }
-    char *path = ctx->dir[ctx->idx].path;
-    DIR *dir = ctx->dir[ctx->idx].dir;
 
-    ESP_LOGI(TAG, "start with idx %d and path %s", ctx->idx, ctx->dir[ctx->idx].path);
+    if (ctx) {
+        ctx->con = con;
+        // TODO ctx->time =
+    }
 
+    return ctx;
+}
+
+static void free_context(context_t *ctx) {
+    ESP_LOGI(TAG, "clean up audio context data for con %d...", ctx->con);
+    for (int i = ctx->idx; i >= 0; --i) {
+        if (ctx->dir[i].path) {
+            free(ctx->dir[i].path);
+        }
+        if (ctx->dir[i].dir) {
+            closedir(ctx->dir[i].dir);
+        }
+    }
+    memset(ctx, 0, sizeof(context_t));
+}
+
+static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list_t *list) {
     struct dirent *entry;
-    while (error == ESP_OK && !audio_ctx->stop) {
+    char *path = NULL;
+    DIR *dir = NULL;
+
+    context_t *ctx = get_context(con, start);
+
+    if (ctx) {
+        if (start) {
+            list->first = true;
+            asprintf(&ctx->dir[0].path, "%s", MOUNT_POINT);
+            ctx->dir[0].dir = opendir(ctx->dir[0].path);
+            if (!ctx->dir[0].dir) {
+                ESP_LOGE(TAG, "error opening directory %s", ctx->dir[0].path);
+                *error = AUDIO_IO_ERROR;
+            }
+        }
+        path = ctx->dir[ctx->idx].path;
+        dir = ctx->dir[ctx->idx].dir;
+        ESP_LOGI(TAG, "start with idx %d and path %s", ctx->idx, ctx->dir[ctx->idx].path);
+    } else {
+        if (start) {
+            *error = AUDIO_BUSY_ERROR;
+        } else {
+            *error = AUDIO_START_ERROR;
+        }
+    }
+
+    while (*error == AUDIO_NO_ERROR && !list->last) {
         errno = 0;
         entry = readdir(dir);
         if (errno) {
             ESP_LOGE(TAG, "error reading directory");
-            error = ESP_FAIL;
+            *error = AUDIO_IO_ERROR;
         } else if (entry) {
             if (entry->d_type == DT_REG) {
                 ESP_LOGI(TAG, "File found: %s", entry->d_name);
-                asprintf(&list->files[list->cnt].name, "%s/%s", &path[strlen(MOUNT_POINT)], entry->d_name);
+                asprintf(&list->file[list->cnt].name, "%s/%s", &path[strlen(MOUNT_POINT)], entry->d_name);
                 list->cnt++;
                 if (list->cnt == FILE_LIST_SIZE) {
                     ESP_LOGI(TAG, "list full -> break");
@@ -198,7 +243,7 @@ static esp_err_t read_dir(audio_ctx_t *audio_ctx, audio_file_list_t *list) {
                     dir = ctx->dir[ctx->idx].dir;
                     if (!dir) {
                         ESP_LOGE(TAG, "error opening directory %s", path);
-                        error = ESP_FAIL;
+                        *error = AUDIO_IO_ERROR;
                     }
                 }
             }
@@ -215,26 +260,19 @@ static esp_err_t read_dir(audio_ctx_t *audio_ctx, audio_file_list_t *list) {
                 dir = ctx->dir[ctx->idx].dir;
             } else {
                 ESP_LOGI(TAG, "completed with the whole sdcard");
-                audio_ctx->stop = true;
+                list->last = true;
                 break;
             }
         }
     }
 
-    if (error || audio_ctx->stop) {
-        ESP_LOGI(TAG, "clean up audio context data...");
-        audio_ctx->stop = true;
-        for (int i = ctx->idx; i >= 0; --i) {
-            if (ctx->dir[i].path) {
-                free(ctx->dir[i].path);
-            }
-            if (ctx->dir[i].dir) {
-                closedir(ctx->dir[i].dir);
-            }
-        }
-        free(ctx);
-        audio_ctx->data = NULL;
+    if (*error == AUDIO_IO_ERROR || list->last) {
+        free_context(ctx);
     }
 
-    return error;
+    if (*error == AUDIO_IO_ERROR) {
+        return ESP_FAIL;
+    } else {
+        return ESP_OK;
+    }
 }

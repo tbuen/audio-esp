@@ -8,7 +8,7 @@
 #include "audio.h"
 #include "wlan.h"
 #include "http.h"
-#include "context.h"
+#include "con.h"
 #include "json.h"
 
 #define NUMBER_OF_WIFI_NETWORKS  5
@@ -23,8 +23,8 @@ typedef struct {
 
 static void connect(void);
 static void handle_wlan_event(message_t *msg);
-static void handle_http_event(message_t *msg);
-static void handle_context_event(message_t *msg);
+static void handle_con_event(message_t *msg);
+static void handle_com_event(message_t *msg);
 static void handle_json_event(message_t *msg);
 static void handle_audio_event(message_t *msg);
 
@@ -61,7 +61,7 @@ void app_main(void) {
     audio_init(queue);
     wlan_init(queue);
     http_init(queue);
-    context_init(queue);
+    con_init(queue);
     json_init(queue);
 
     wlan_set_mode(wlan_mode);
@@ -84,11 +84,11 @@ void app_main(void) {
                 case BASE_WLAN:
                     handle_wlan_event(&msg);
                     break;
-                case BASE_HTTP:
-                    handle_http_event(&msg);
+                case BASE_CON:
+                    handle_con_event(&msg);
                     break;
-                case BASE_CONTEXT:
-                    handle_context_event(&msg);
+                case BASE_COM:
+                    handle_com_event(&msg);
                     break;
                 case BASE_JSON:
                     handle_json_event(&msg);
@@ -172,13 +172,16 @@ static void handle_wlan_event(message_t *msg) {
     }
 }
 
-static void handle_http_event(message_t *msg) {
+static void handle_con_event(message_t *msg) {
     switch (msg->event) {
-        case EVENT_HTTP_RECV:
-            if (msg->data) {
-                msg_http_recv_t *msg_data = (msg_http_recv_t*)msg->data;
-                json_recv(msg_data->com_ctx, msg_data->text);
-                free(msg_data->text);
+        case EVENT_CONNECTED:
+            if (con_count()) {
+                led_set(LED_YELLOW, LED_ON);
+            }
+            break;
+        case EVENT_DISCONNECTED:
+            if (!con_count()) {
+                led_set(LED_YELLOW, LED_OFF);
             }
             break;
         default:
@@ -186,16 +189,20 @@ static void handle_http_event(message_t *msg) {
     }
 }
 
-static void handle_context_event(message_t *msg) {
+static void handle_com_event(message_t *msg) {
     switch (msg->event) {
-        case EVENT_CONTEXT_CREATED:
-            if (context_count()) {
-                led_set(LED_YELLOW, LED_ON);
+        case EVENT_RECV:
+            if (msg->data) {
+                msg_recv_t *msg_data = (msg_recv_t*)msg->data;
+                json_recv(msg_data->con, msg_data->text);
+                free(msg_data->text);
             }
             break;
-        case EVENT_CONTEXT_DELETED:
-            if (!context_count()) {
-                led_set(LED_YELLOW, LED_OFF);
+        case EVENT_SEND:
+            if (msg->data) {
+                msg_send_t *msg_data = (msg_send_t*)msg->data;
+                http_send(msg_data->con, msg_data->text);
+                free(msg_data->text);
             }
             break;
         default:
@@ -205,40 +212,6 @@ static void handle_context_event(message_t *msg) {
 
 static void handle_json_event(message_t *msg) {
     switch (msg->event) {
-        case EVENT_JSON_SEND:
-            if (msg->data) {
-                msg_json_send_t *msg_data = (msg_json_send_t*)msg->data;
-                if (msg_data->com_ctx) {
-                    if (http_send(msg_data->com_ctx->sockfd, msg_data->text)) {
-                        if (msg_data->audio_ctx) {
-                            msg_data->audio_ctx->start = false;
-                            if (msg_data->audio_ctx->stop) {
-                                ESP_LOGW(TAG, "send success, last chain -> free com_ctx and audio_ctx");
-                                free(msg_data->com_ctx);
-                                free(msg_data->audio_ctx);
-                            } else {
-                                ESP_LOGW(TAG, "send success, chain -> call audio request");
-                                audio_request(msg_data->com_ctx, msg_data->audio_ctx);
-                            }
-                        } else {
-                            ESP_LOGW(TAG, "send success, no chain -> free com_ctx");
-                            free(msg_data->com_ctx);
-                        }
-                    } else {
-                        ESP_LOGW(TAG, "send failed -> free com_ctx");
-                        free(msg_data->com_ctx);
-                        msg_data->com_ctx = NULL;
-                        if (msg_data->audio_ctx) {
-                            ESP_LOGW(TAG, "call audio request to clean up");
-                            msg_data->audio_ctx->start = false;
-                            msg_data->audio_ctx->stop = true;
-                            audio_request(msg_data->com_ctx, msg_data->audio_ctx);
-                        }
-                    }
-                }
-                free(msg_data->text);
-            }
-            break;
         case EVENT_JSON_ADD_WIFI:
             if (msg->data) {
                 wifi_msg_t *wifi_msg = (wifi_msg_t*)msg->data;
@@ -257,12 +230,6 @@ static void handle_json_event(message_t *msg) {
                 }
             }
             break;
-        case EVENT_JSON_AUDIO_REQUEST:
-            if (msg->data) {
-                msg_json_audio_request_t *msg_data = (msg_json_audio_request_t*)msg->data;
-                audio_request(msg_data->com_ctx, msg_data->audio_ctx);
-            }
-            break;
         default:
             break;
     }
@@ -270,21 +237,22 @@ static void handle_json_event(message_t *msg) {
 
 static void handle_audio_event(message_t *msg) {
     switch (msg->event) {
+        case EVENT_AUDIO_REQUEST:
+            if (msg->data) {
+                msg_audio_request_t *msg_data = (msg_audio_request_t*)msg->data;
+                audio_request(msg_data);
+            }
+            break;
         case EVENT_AUDIO_FILE_LIST:
             if (msg->data) {
                 msg_audio_file_list_t *msg_data = (msg_audio_file_list_t*)msg->data;
-                ESP_LOGW(TAG, "received file list msg - start: %d stop: %d", msg_data->audio_ctx->start, msg_data->audio_ctx->stop);
+                ESP_LOGW(TAG, "received file list msg - error %d first %d last %d", msg_data->error, msg_data->list.first, msg_data->list.last);
                 for (int i = 0; i < msg_data->list.cnt; ++i) {
-                    ESP_LOGW(TAG, "file name: %s", msg_data->list.files[i].name);
+                    ESP_LOGW(TAG, "file name: %s", msg_data->list.file[i].name);
                 }
-                if (msg_data->com_ctx) {
-                    json_send_file_list(msg_data->audio_ctx, msg_data->com_ctx, &msg_data->list);
-                } else {
-                    ESP_LOGW(TAG, "audio cleaned up, no com_ctx -> free audio_ctx");
-                    free(msg_data->audio_ctx);
-                }
+                json_send_file_list(msg_data->con, msg_data->rpc_id, msg_data->error, &msg_data->list);
                 for (int i = 0; i < msg_data->list.cnt; ++i) {
-                    free(msg_data->list.files[i].name);
+                    free(msg_data->list.file[i].name);
                 }
             }
             break;

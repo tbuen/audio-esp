@@ -5,7 +5,7 @@
 #include "config.h"
 #include "message.h"
 #include "json.h"
-#include "context.h"
+#include "con.h"
 #include "http.h"
 
 static void http_close_fn(httpd_handle_t hd, int sockfd);
@@ -74,29 +74,33 @@ void http_stop(void) {
     ESP_LOGI(TAG, "stopped");
 }
 
-bool http_send(int sockfd, char *text) {
-    if (!server) return false;
-    if (httpd_ws_get_fd_info(server, sockfd) != HTTPD_WS_CLIENT_WEBSOCKET) return false;
+void http_send(con_t con, char *text) {
+    if (!server) return;
 
-    httpd_ws_frame_t ws_pkt = {
-        .final = true,
-        .fragmented = false,
-        .type = HTTPD_WS_TYPE_TEXT,
-        .payload = (uint8_t*)text,
-        .len = strlen(text)
-    };
-    return httpd_ws_send_data(server, sockfd, &ws_pkt) == ESP_OK;
+    int sockfd;
+    if (con_get_sock(con, &sockfd)) {
+        if (httpd_ws_get_fd_info(server, sockfd) != HTTPD_WS_CLIENT_WEBSOCKET) return;
+
+        httpd_ws_frame_t ws_pkt = {
+            .final = true,
+            .fragmented = false,
+            .type = HTTPD_WS_TYPE_TEXT,
+            .payload = (uint8_t*)text,
+            .len = strlen(text)
+        };
+        httpd_ws_send_data(server, sockfd, &ws_pkt);
+    }
 }
 
 static void http_close_fn(httpd_handle_t hd, int sockfd) {
     ESP_LOGI(TAG, "close socket %d", sockfd);
     close(sockfd);
-    context_delete(sockfd);
+    con_delete(sockfd);
 }
 
 static esp_err_t websocket_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
-        context_create(httpd_req_to_sockfd(req));
+        con_create(httpd_req_to_sockfd(req));
         return ESP_OK;
     }
 
@@ -125,12 +129,14 @@ static esp_err_t websocket_handler(httpd_req_t *req) {
                 return ret;
             }
 
-            msg_http_recv_t *msg_data = calloc(1, sizeof(msg_http_recv_t));
-            msg_data->com_ctx = calloc(1, sizeof(com_ctx_t));
-            msg_data->com_ctx->sockfd = httpd_req_to_sockfd(req);
-            msg_data->text = (char*)buf;
-            message_t msg = { BASE_HTTP, EVENT_HTTP_RECV, msg_data };
-            xQueueSendToBack(queue, &msg, 0);
+            con_t con;
+            if (con_get_con(httpd_req_to_sockfd(req), &con)) {
+                msg_recv_t *msg_data = calloc(1, sizeof(msg_recv_t));
+                msg_data->con = con;
+                msg_data->text = (char*)buf;
+                message_t msg = { BASE_COM, EVENT_RECV, msg_data };
+                xQueueSendToBack(queue, &msg, 0);
+            }
         }
     }
     return ret;
