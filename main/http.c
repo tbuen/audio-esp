@@ -113,7 +113,7 @@ static esp_err_t websocket_handler(httpd_req_t *req) {
         ESP_LOGE(TAG, "httpd_ws_recv_frame failed to get frame len with %d", ret);
         return ret;
     }
-    ESP_LOGI(TAG, "packet type: %d len: %d", ws_pkt.type, ws_pkt.len);
+    ESP_LOGD(TAG, "packet type: %d len: %d", ws_pkt.type, ws_pkt.len);
     if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
         if (ws_pkt.len) {
             buf = calloc(1, ws_pkt.len + 1);

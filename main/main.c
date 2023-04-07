@@ -68,7 +68,7 @@ void app_main(void) {
 
     for (;;) {
         if (xQueueReceive(queue, &msg, pdMS_TO_TICKS(1000)) == pdTRUE) {
-            ESP_LOGI(TAG, "received event: %02d", msg.event);
+            ESP_LOGD(TAG, "received event: %02d", msg.event);
             switch (msg.base) {
                 case BASE_BUTTON:
                     if (msg.event == EVENT_BUTTON_PRESSED) {
@@ -245,14 +245,31 @@ static void handle_audio_event(message_t *msg) {
             break;
         case EVENT_AUDIO_FILE_LIST:
             if (msg->data) {
-                msg_audio_file_list_t *msg_data = (msg_audio_file_list_t*)msg->data;
-                ESP_LOGW(TAG, "received file list msg - error %d first %d last %d", msg_data->error, msg_data->list.first, msg_data->list.last);
-                for (int i = 0; i < msg_data->list.cnt; ++i) {
-                    ESP_LOGW(TAG, "file name: %s", msg_data->list.file[i].name);
-                }
+                msg_audio_response_t *msg_data = (msg_audio_response_t*)msg->data;
                 json_send_file_list(msg_data->con, msg_data->rpc_id, msg_data->error, &msg_data->list);
                 for (int i = 0; i < msg_data->list.cnt; ++i) {
                     free(msg_data->list.file[i].name);
+                }
+            }
+            break;
+        case EVENT_AUDIO_FILE_INFO:
+            if (msg->data) {
+                msg_audio_response_t *msg_data = (msg_audio_response_t*)msg->data;
+                json_send_file_info(msg_data->con, msg_data->rpc_id, msg_data->error, &msg_data->info);
+                if (msg_data->info.filename) {
+                    free(msg_data->info.filename);
+                }
+                if (msg_data->info.genre) {
+                    free(msg_data->info.genre);
+                }
+                if (msg_data->info.artist) {
+                    free(msg_data->info.artist);
+                }
+                if (msg_data->info.album) {
+                    free(msg_data->info.album);
+                }
+                if (msg_data->info.title) {
+                    free(msg_data->info.title);
                 }
             }
             break;

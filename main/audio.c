@@ -17,7 +17,9 @@
 
 #define MOUNT_POINT "/sdcard"
 #define MAX_DEPTH      5
-#define MAX_CONTEXT    2 // 10
+#define MAX_CONTEXT    5
+
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 static const char *TAG = "audio";
 
@@ -45,6 +47,7 @@ static void audio_task(void *param);
 static context_t *get_context(con_t con, bool start);
 static void free_context(context_t *ctx);
 static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list_t *list);
+static esp_err_t read_info(const char *filename, int16_t *error, audio_file_info_t *info);
 
 void audio_init(QueueHandle_t q) {
     if (handle) return;
@@ -105,7 +108,7 @@ static void audio_task(void *param) {
             switch (msg.request) {
                 case AUDIO_REQ_FILE_LIST:
                     {
-                        msg_audio_file_list_t *msg_data = calloc(1, sizeof(msg_audio_file_list_t));
+                        msg_audio_response_t *msg_data = calloc(1, sizeof(msg_audio_response_t));
                         msg_data->con = msg.con;
                         msg_data->rpc_id = msg.rpc_id;
                         if (res == ESP_OK) {
@@ -114,6 +117,21 @@ static void audio_task(void *param) {
                             msg_data->error = AUDIO_IO_ERROR;
                         }
                         message_t msg = { BASE_AUDIO, EVENT_AUDIO_FILE_LIST, msg_data };
+                        xQueueSendToBack(queue, &msg, 0);
+                        break;
+                    }
+                case AUDIO_REQ_FILE_INFO:
+                    {
+                        msg_audio_response_t *msg_data = calloc(1, sizeof(msg_audio_response_t));
+                        msg_data->con = msg.con;
+                        msg_data->rpc_id = msg.rpc_id;
+                        if (res == ESP_OK) {
+                            res = read_info(msg.filename, &msg_data->error, &msg_data->info);
+                        } else {
+                            msg_data->error = AUDIO_IO_ERROR;
+                        }
+                        free(msg.filename);
+                        message_t msg = { BASE_AUDIO, EVENT_AUDIO_FILE_INFO, msg_data };
                         xQueueSendToBack(queue, &msg, 0);
                         break;
                     }
@@ -210,7 +228,7 @@ static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list
         }
         path = ctx->dir[ctx->idx].path;
         dir = ctx->dir[ctx->idx].dir;
-        ESP_LOGI(TAG, "start with idx %d and path %s", ctx->idx, ctx->dir[ctx->idx].path);
+        ESP_LOGD(TAG, "start with idx %d and path %s", ctx->idx, ctx->dir[ctx->idx].path);
     } else {
         if (start) {
             *error = AUDIO_BUSY_ERROR;
@@ -227,11 +245,11 @@ static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list
             *error = AUDIO_IO_ERROR;
         } else if (entry) {
             if (entry->d_type == DT_REG) {
-                ESP_LOGI(TAG, "File found: %s", entry->d_name);
+                ESP_LOGD(TAG, "File found: %s", entry->d_name);
                 asprintf(&list->file[list->cnt].name, "%s/%s", &path[strlen(MOUNT_POINT)], entry->d_name);
                 list->cnt++;
                 if (list->cnt == FILE_LIST_SIZE) {
-                    ESP_LOGI(TAG, "list full -> break");
+                    ESP_LOGD(TAG, "list full -> break");
                     break;
                 }
             } else if (entry->d_type == DT_DIR) {
@@ -248,18 +266,18 @@ static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list
                 }
             }
         } else {
-            ESP_LOGI(TAG, "no more files found in dir -> closing");
+            ESP_LOGD(TAG, "no more files found in dir -> closing");
             closedir(dir);
             free(path);
             ctx->dir[ctx->idx].path = NULL;
             ctx->dir[ctx->idx].dir = NULL;
             if (ctx->idx) {
-                ESP_LOGI(TAG, "continue with parent dir");
+                ESP_LOGD(TAG, "continue with parent dir");
                 ctx->idx--;
                 path = ctx->dir[ctx->idx].path;
                 dir = ctx->dir[ctx->idx].dir;
             } else {
-                ESP_LOGI(TAG, "completed with the whole sdcard");
+                ESP_LOGD(TAG, "completed with the whole sdcard");
                 list->last = true;
                 break;
             }
@@ -275,4 +293,105 @@ static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list
     } else {
         return ESP_OK;
     }
+}
+
+static esp_err_t read_info(const char *filename, int16_t *error, audio_file_info_t *info) {
+    esp_err_t err = ESP_OK;
+    char *file;
+    if (strcmp(".ogg", &filename[strlen(filename) - 4])) {
+        *error = AUDIO_FILE_TYPE_ERROR;
+        return err;
+    }
+    asprintf(&file, "%s%s", MOUNT_POINT, filename);
+    errno = 0;
+    int fd = open(file, O_RDONLY, 0);
+    if (fd >= 0) {
+        int n;
+        uint8_t buffer[1024];
+        uint64_t length = 0;
+        uint32_t rate = 0;
+        asprintf(&info->filename, "%s", filename);
+        if ((n = read(fd, buffer, sizeof(buffer))) == sizeof(buffer)) {
+            ESP_LOGD(TAG, "first buffer read");
+            uint8_t *ptr = memmem(buffer, sizeof(buffer), "\x01vorbis", 7);
+            if (ptr) {
+                ESP_LOGD(TAG, "found 1st header");
+                ptr += 7 + 5;
+                rate = ptr[0] + (ptr[1] << 8) + (ptr[2] << 16) + (ptr[3] << 24);
+                ESP_LOGD(TAG, "rate: %d", rate);
+            }
+            ptr = memmem(buffer, sizeof(buffer), "\x03vorbis", 7);
+            if (ptr) {
+                ESP_LOGD(TAG, "found 2nd header");
+                ptr += 7;
+                uint32_t len = ptr[0] + (ptr[1] << 8) + (ptr[2] << 16) + (ptr[3] << 24);
+                ptr += 4 + len;
+                uint32_t num = ptr[0] + (ptr[1] << 8) + (ptr[2] << 16) + (ptr[3] << 24);
+                ptr += 4;
+                ESP_LOGD(TAG, "found %d comments", num);
+                for (uint8_t c = 0; c < num; ++c) {
+                    len = ptr[0] + (ptr[1] << 8) + (ptr[2] << 16) + (ptr[3] << 24);
+                    ptr += 4;
+                    if (memcmp(ptr, "GENRE=", 6) == 0) {
+                        info->genre = calloc(1, len - 6 + 1);
+                        memcpy(info->genre, &ptr[6], len - 6);
+                    } else if (memcmp(ptr, "ARTIST=", 7) == 0) {
+                        info->artist = calloc(1, len - 7 + 1);
+                        memcpy(info->artist, &ptr[7], len - 7);
+                    } else if (memcmp(ptr, "ALBUM=", 6) == 0) {
+                        info->album = calloc(1, len - 6 + 1);
+                        memcpy(info->album, &ptr[6], len - 6);
+                    } else if (memcmp(ptr, "TITLE=", 6) == 0) {
+                        info->title = calloc(1, len - 6 + 1);
+                        memcpy(info->title, &ptr[6], len - 6);
+                    } else if (memcmp(ptr, "DATE=", 5) == 0) {
+                        char buf[10] = { 0 };
+                        memcpy(buf, &ptr[5], MIN(sizeof(buf) - 1, len - 5));
+                        info->date = strtoul(buf, NULL, 10);
+                    } else if (memcmp(ptr, "TRACKNUMBER=", 12) == 0) {
+                        char buf[10] = { 0 };
+                        memcpy(buf, &ptr[12], MIN(sizeof(buf) - 1, len - 12));
+                        info->track = strtoul(buf, NULL, 10);
+                    }
+                    ptr += len;
+                }
+            }
+        }
+        lseek(fd, -sizeof(buffer), SEEK_END);
+        while (true) {
+            if ((n = read(fd, buffer, sizeof(buffer))) == sizeof(buffer)) {
+                ESP_LOGD(TAG, "last buffer read");
+                uint8_t *ptr = memmem(buffer, sizeof(buffer), "OggS\x00\x04", 6);
+                if (ptr) {
+                    ESP_LOGD(TAG, "found page header");
+                    length = (uint64_t)ptr[6] + ((uint64_t)ptr[7] << 8) +
+                        ((uint64_t)ptr[8] << 16) + ((uint64_t)ptr[9] << 24) +
+                        ((uint64_t)ptr[10] << 32) + ((uint64_t)ptr[11] << 40) +
+                        ((uint64_t)ptr[12] << 48) + ((uint64_t)ptr[13] << 56);
+                    break;
+                } else {
+                    lseek(fd, - 2 * sizeof(buffer) + 32, SEEK_CUR);
+                }
+            } else {
+                ESP_LOGW(TAG, "could not read, n: %d", n);
+                break;
+            }
+        }
+        if (length && rate) {
+            info->duration = length / rate;
+        }
+        if (n < 0) {
+            ESP_LOGE(TAG, "error reading file!");
+            *error = AUDIO_IO_ERROR;
+            err = ESP_FAIL;
+        }
+        close(fd);
+    } else {
+        // TODO only return ESP_FAIL in case of IO error.. in both cases errno is 2 :(
+        ESP_LOGE(TAG, "error opening file %s: %d", file, errno);
+        *error = AUDIO_FILE_NOT_FOUND_ERROR;
+        err = ESP_FAIL;
+    }
+    free(file);
+    return err;
 }

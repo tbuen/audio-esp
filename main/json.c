@@ -27,6 +27,7 @@ static char *json_error_message(int16_t code);
 static int16_t method_get_version(const cJSON *params, cJSON **result, con_t con, uint32_t rpc_id);
 static int16_t method_add_wifi(const cJSON *params, cJSON **result, con_t con, uint32_t rpc_id);
 static int16_t method_get_file_list(const cJSON *params, cJSON **result, con_t con, uint32_t rpc_id);
+static int16_t method_get_file_info(const cJSON *params, cJSON **result, con_t con, uint32_t rpc_id);
 
 static const char *TAG = "json";
 
@@ -36,6 +37,7 @@ static method_entry_t method_table[] = {
     { "get-version",   &method_get_version },
     { "add-wifi",      &method_add_wifi },
     { "get-file-list", &method_get_file_list },
+    { "get-file-info", &method_get_file_info },
 };
 
 void json_init(QueueHandle_t q) {
@@ -93,6 +95,39 @@ void json_send_file_list(con_t con, uint32_t rpc_id, int16_t error, audio_file_l
         for (int i = 0; i < list->cnt; ++i) {
             cJSON *f = cJSON_CreateString(list->file[i].name);
             cJSON_AddItemToArray(files, f);
+        }
+        json_send_result(result, con, rpc_id);
+    } else {
+        json_send_error(error, con, rpc_id);
+    }
+}
+
+void json_send_file_info(con_t con, uint32_t rpc_id, int16_t error, audio_file_info_t *info) {
+    if (!error) {
+        cJSON *result = cJSON_CreateObject();
+        if (info->filename) {
+            cJSON_AddStringToObject(result, "filename", info->filename);
+        }
+        if (info->genre) {
+            cJSON_AddStringToObject(result, "genre", info->genre);
+        }
+        if (info->artist) {
+            cJSON_AddStringToObject(result, "artist", info->artist);
+        }
+        if (info->album) {
+            cJSON_AddStringToObject(result, "album", info->album);
+        }
+        if (info->title) {
+            cJSON_AddStringToObject(result, "title", info->title);
+        }
+        if (info->date) {
+            cJSON_AddNumberToObject(result, "date", info->date);
+        }
+        if (info->track) {
+            cJSON_AddNumberToObject(result, "track", info->track);
+        }
+        if (info->duration) {
+            cJSON_AddNumberToObject(result, "duration", info->duration);
         }
         json_send_result(result, con, rpc_id);
     } else {
@@ -172,6 +207,12 @@ static char *json_error_message(int16_t code) {
         case AUDIO_BUSY_ERROR:
             ret = "busy, try again later";
             break;
+        case AUDIO_FILE_NOT_FOUND_ERROR:
+            ret = "file not found";
+            break;
+        case AUDIO_FILE_TYPE_ERROR:
+            ret = "invalid file type";
+            break;
         default:
             break;
     }
@@ -220,6 +261,22 @@ static int16_t method_get_file_list(const cJSON *params, cJSON **result, con_t c
         msg_data->rpc_id = rpc_id;
         msg_data->request = AUDIO_REQ_FILE_LIST;
         msg_data->start = cJSON_IsTrue(start);
+        message_t msg = { BASE_AUDIO, EVENT_AUDIO_REQUEST, msg_data };
+        xQueueSendToBack(queue, &msg, 0);
+        return JSON_DEFER_RESPONSE;
+    } else {
+        return JSON_INVALID_PARAMS;
+    }
+}
+
+static int16_t method_get_file_info(const cJSON *params, cJSON **result, con_t con, uint32_t rpc_id) {
+    cJSON *filename = cJSON_GetObjectItemCaseSensitive(params, "filename");
+    if (cJSON_IsString(filename)) {
+        msg_audio_request_t *msg_data = calloc(1, sizeof(msg_audio_request_t));
+        msg_data->con = con;
+        msg_data->rpc_id = rpc_id;
+        msg_data->request = AUDIO_REQ_FILE_INFO;
+        asprintf(&msg_data->filename, "%s", filename->valuestring);
         message_t msg = { BASE_AUDIO, EVENT_AUDIO_REQUEST, msg_data };
         xQueueSendToBack(queue, &msg, 0);
         return JSON_DEFER_RESPONSE;

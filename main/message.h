@@ -42,7 +42,8 @@ typedef enum {
 
     // BASE_AUDIO
     EVENT_AUDIO_REQUEST,
-    EVENT_AUDIO_FILE_LIST
+    EVENT_AUDIO_FILE_LIST,
+    EVENT_AUDIO_FILE_INFO
 } event_t;
 
 typedef struct {
@@ -68,14 +69,18 @@ typedef struct {
 } wifi_msg_t;
 
 typedef enum {
-    AUDIO_REQ_FILE_LIST
+    AUDIO_REQ_FILE_LIST,
+    AUDIO_REQ_FILE_INFO
 } audio_request_t;
 
 typedef struct {
     con_t con;
     uint32_t rpc_id;
     audio_request_t request;
-    bool start;
+    union {
+        bool start;
+        char *filename;
+    };
 } msg_audio_request_t;
 
 typedef struct {
@@ -90,8 +95,22 @@ typedef struct {
 } audio_file_list_t;
 
 typedef struct {
+    char *filename;
+    char *genre;
+    char *artist;
+    char *album;
+    char *title;
+    uint16_t date;
+    uint16_t track;
+    uint16_t duration;
+} audio_file_info_t;
+
+typedef struct {
     con_t con;
     uint32_t rpc_id;
     int16_t error;
-    audio_file_list_t list;
-} msg_audio_file_list_t;
+    union {
+        audio_file_list_t list;
+        audio_file_info_t info;
+    };
+} msg_audio_response_t;

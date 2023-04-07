@@ -5,10 +5,12 @@
 
 #include "message.h"
 
-#define AUDIO_NO_ERROR          0
-#define AUDIO_IO_ERROR       -100
-#define AUDIO_START_ERROR    -101
-#define AUDIO_BUSY_ERROR     -102
+#define AUDIO_NO_ERROR                0
+#define AUDIO_IO_ERROR             -100
+#define AUDIO_START_ERROR          -101
+#define AUDIO_BUSY_ERROR           -102
+#define AUDIO_FILE_NOT_FOUND_ERROR -103
+#define AUDIO_FILE_TYPE_ERROR      -104
 
 typedef struct {
     int left;
