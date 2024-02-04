@@ -246,7 +246,7 @@ static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list
         } else if (entry) {
             if (entry->d_type == DT_REG) {
                 ESP_LOGD(TAG, "File found: %s", entry->d_name);
-                asprintf(&list->file[list->cnt].name, "%s/%s", &path[strlen(MOUNT_POINT)], entry->d_name);
+                asprintf(&list->file[list->cnt].name, "%s/%s", &path[strlen(MOUNT_POINT)+1], entry->d_name);
                 list->cnt++;
                 if (list->cnt == FILE_LIST_SIZE) {
                     ESP_LOGD(TAG, "list full -> break");
@@ -302,7 +302,7 @@ static esp_err_t read_info(const char *filename, int16_t *error, audio_file_info
         *error = AUDIO_FILE_TYPE_ERROR;
         return err;
     }
-    asprintf(&file, "%s%s", MOUNT_POINT, filename);
+    asprintf(&file, "%s/%s", MOUNT_POINT, filename);
     errno = 0;
     int fd = open(file, O_RDONLY, 0);
     if (fd >= 0) {

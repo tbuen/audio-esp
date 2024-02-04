@@ -1,8 +1,10 @@
-#include "driver/gpio.h"
-#include "esp_log.h"
+#include <driver/gpio.h>
+#include <esp_log.h>
 
 #include "message.h"
 #include "button.h"
+
+// defines
 
 #define TASK_CORE     1
 #define TASK_PRIO     1
@@ -12,17 +14,19 @@
 #define BUTTON_PRESSED 0
 #define BUTTON_DELAY_S 1
 
+// function prototypes
+
 static void button_task(void *param);
 
+// local variables
+
 static const char *TAG = "button";
-
 static TaskHandle_t handle;
-static QueueHandle_t queue;
 
-void button_init(QueueHandle_t q) {
+// public functions
+
+void button_init(void) {
     if (handle) return;
-
-    queue = q;
 
     gpio_config_t io_conf = {};
 
@@ -36,6 +40,8 @@ void button_init(QueueHandle_t q) {
     }
 }
 
+// local functions
+
 static void button_task(void *param) {
     uint8_t button_cnt = 0;
 
@@ -45,8 +51,7 @@ static void button_task(void *param) {
                 button_cnt++;
                 if (button_cnt == BUTTON_DELAY_S * 100) {
                     ESP_LOGI(TAG, "BUTTON pressed!");
-                    message_t msg = { BASE_BUTTON, EVENT_BUTTON_PRESSED, NULL };
-                    xQueueSendToBack(queue, &msg, 0);
+                    msg_send_value(MSG_BUTTON, 1);
                 }
             }
         } else {

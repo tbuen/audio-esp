@@ -32,12 +32,16 @@ static const char *TAG = "wlan";
 static TaskHandle_t handle;
 static QueueHandle_t queue;
 static QueueHandle_t request_queue;
+static msg_handle_t msg_handle;
 
 void wlan_init(QueueHandle_t q) {
     if (handle) return;
 
+    msg_handle = msg_register(MSG_BUTTON);
+
     queue = q;
 
+    ESP_LOGI(TAG, "Task init: %s", pcTaskGetName(NULL));
     request_queue = xQueueCreate(5, sizeof(request_t));
 
     ESP_ERROR_CHECK(esp_netif_init());
@@ -51,6 +55,11 @@ void wlan_init(QueueHandle_t q) {
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    ESP_ERROR_CHECK(esp_wifi_set_country_code("DEI", true));
+    char country[10] = {0};
+    ESP_ERROR_CHECK(esp_wifi_get_country_code(country));
+    ESP_LOGI(TAG, "Country Code: %s", country);
 
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wlan_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &wlan_event_handler, NULL, NULL));
@@ -86,6 +95,7 @@ void wlan_connect(const uint8_t *ssid, const uint8_t *password) {
 }
 
 static void wlan_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
+    ESP_LOGI(TAG, "Task event: %s", pcTaskGetName(NULL));
     if (event_base == WIFI_EVENT) {
         switch (event_id) {
             case WIFI_EVENT_STA_START:
@@ -98,6 +108,18 @@ static void wlan_event_handler(void *arg, esp_event_base_t event_base, int32_t e
                 {
                     message_t msg = { BASE_WLAN, EVENT_WLAN_STA_STOP, NULL };
                     xQueueSendToBack(queue, &msg, 0);
+                }
+                break;
+            case WIFI_EVENT_SCAN_DONE:
+                {
+                    uint16_t number = 10;
+                    wifi_ap_record_t records[10];
+                    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&number));
+                    ESP_LOGI(TAG, "found %d APs", number);
+                    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, records));
+                    for (int i = 0; i < number; ++i) {
+                        ESP_LOGI(TAG, "FOUND AP: SSID %s CH %d RSSI %d WPS %d AUTH %d, CC %s", records[i].ssid, records[i].primary, records[i].rssi, records[i].wps, records[i].authmode, records[i].country.cc);
+                    }
                 }
                 break;
             case WIFI_EVENT_STA_CONNECTED:
@@ -170,8 +192,12 @@ static void wlan_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 
 static void wlan_sta(bool start) {
     if (start) {
+        wifi_scan_config_t config = {
+        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
+        };
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
         ESP_ERROR_CHECK(esp_wifi_start());
+        ESP_ERROR_CHECK(esp_wifi_scan_start(&config, false));
     } else {
         ESP_ERROR_CHECK(esp_wifi_disconnect());
         ESP_ERROR_CHECK(esp_wifi_stop());
@@ -204,8 +230,9 @@ static void wlan_con(const uint8_t *ssid, const uint8_t *password) {
         .sta = {
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
             .pmf_cfg = {
-                .capable = true,
-                .required = false
+                //.capable = true,
+                //.required = false
+                .required = true
             },
         },
     };
@@ -217,6 +244,7 @@ static void wlan_con(const uint8_t *ssid, const uint8_t *password) {
 
 static void wlan_task(void *param) {
     wifi_mode_t mode = WIFI_MODE_NULL;
+    ESP_LOGI(TAG, "Task wlan: %s", pcTaskGetName(NULL));
     for (;;) {
         request_t request;
         if (xQueueReceive(request_queue, &request, portMAX_DELAY) == pdTRUE) {
@@ -235,6 +263,7 @@ static void wlan_task(void *param) {
                     wlan_ap(true);
                     mode = WIFI_MODE_AP;
                     break;
+#if 0
                 case WLAN_REQ_CONNECT:
                     if (   (mode == WIFI_MODE_STA)
                         && request.data) {
@@ -243,6 +272,7 @@ static void wlan_task(void *param) {
                         free(request.data);
                     }
                     break;
+#endif
                 default:
                     break;
             }

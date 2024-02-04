@@ -1,5 +1,32 @@
 #pragma once
 
+#define MSG_BUTTON      0x01
+#define MSG_WLAN_STATUS 0x02
+
+// MSG_WLAN_STATUS
+#define WLAN_CONNECTED  1
+
+typedef uint8_t msg_handle_t;
+
+typedef struct {
+    uint8_t type;
+    uint8_t value;
+    //union {
+    //    uint32_t value;
+    //    void *ptr;
+    //};
+} msg_t;
+
+void msg_init(void);
+
+msg_handle_t msg_register(uint8_t msg_types);
+
+void msg_send_value(uint8_t msg_type, uint8_t value);
+
+msg_t msg_receive(msg_handle_t);
+
+// TODO ab hier alt
+
 #include "con.h"
 
 #define FILE_LIST_SIZE  100

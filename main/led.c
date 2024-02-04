@@ -1,10 +1,10 @@
-#include "driver/ledc.h"
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/task.h"
+#include <driver/ledc.h>
+#include <esp_log.h>
 
+#include "message.h"
 #include "led.h"
+
+// defines
 
 #define TASK_CORE     1
 #define TASK_PRIO     1
@@ -15,7 +15,7 @@
 #define LED_RESOLUTION     LEDC_TIMER_13_BIT
 #define LED_FREQUENCY      (5000)
 #define LED_DUTY_OFF       (0)
-#define LED_DUTY_ON        (8191)
+#define LED_DUTY_MAX       (8191)
 #define LED_CHANNEL_RED    LEDC_CHANNEL_0
 #define LED_CHANNEL_GREEN  LEDC_CHANNEL_1
 #define LED_CHANNEL_YELLOW LEDC_CHANNEL_2
@@ -25,25 +25,47 @@
 #define LED_PIN_YELLOW     GPIO_NUM_18
 #define LED_PIN_BLUE       GPIO_NUM_19
 
+// types
+
+typedef enum {
+    LED_RED,
+    LED_GREEN,
+    LED_YELLOW,
+    LED_BLUE
+} led_color_t;
+
+typedef enum {
+    LED_OFF,
+    LED_LOW,
+    LED_HIGH,
+} led_state_t;
+
 typedef struct {
     ledc_channel_t ch;
-    led_mode_t mode;
-    uint16_t duty;
-} led_t;
+    uint16_t duty[3];
+} led_cfg_t;
 
+// function prototypes
+
+static void led_set(led_color_t color, led_state_t state);
 static void led_task(void *param);
 
-static const char *TAG = "led";
+// local variables
 
-static QueueHandle_t queue;
+static const char *TAG = "led";
 static TaskHandle_t handle;
-static led_t led[LED_MAX] = { { LED_CHANNEL_RED,    LED_OFF, LED_DUTY_ON * 20 / 100 },
-                              { LED_CHANNEL_GREEN,  LED_OFF, LED_DUTY_ON * 10 / 100 },
-                              { LED_CHANNEL_YELLOW, LED_OFF, LED_DUTY_ON * 20 / 100 },
-                              { LED_CHANNEL_BLUE,   LED_OFF, LED_DUTY_ON * 30 / 100 } };
+static msg_handle_t msg_handle;
+static led_cfg_t led_cfg[] = { { LED_CHANNEL_RED,    { 0, 200, 1600 } },
+                               { LED_CHANNEL_GREEN,  { 0, 100,  800 } },
+                               { LED_CHANNEL_YELLOW, { 0, 200, 1600 } },
+                               { LED_CHANNEL_BLUE,   { 0, 300, 2400 } } };
+
+// public functions
 
 void led_init(void) {
     if (handle) return;
+
+    msg_handle = msg_register(MSG_WLAN_STATUS|MSG_BUTTON);
 
     ledc_timer_config_t ledc_timer = {
         .speed_mode       = LED_MODE,
@@ -98,41 +120,29 @@ void led_init(void) {
     };
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel_blue));
 
-    queue = xQueueCreate(5, sizeof(uint16_t));
-
     if (xTaskCreatePinnedToCore(&led_task, "led-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
         ESP_LOGE(TAG, "could not create task");
     }
 }
 
-void led_set(led_color_t color, led_mode_t mode) {
-    uint16_t msg = (color << 8) | mode;
-    xQueueSendToBack(queue, &msg, 0);
+// local functions
+
+static void led_set(led_color_t color, led_state_t state) {
+    ESP_ERROR_CHECK(ledc_set_duty(LED_MODE, led_cfg[color].ch, led_cfg[color].duty[state]));
+    ESP_ERROR_CHECK(ledc_update_duty(LED_MODE, led_cfg[color].ch));
 }
 
 static void led_task(void *param) {
-    uint16_t msg;
-    uint8_t cnt = 0;
+    msg_t msg;
 
     for (;;) {
-        if (xQueueReceive(queue, &msg, 0) == pdTRUE) {
-            led_color_t color = msg >> 8;
-            led_mode_t mode = msg & 0xFF;
-            led[color].mode = mode;
+        msg = msg_receive(msg_handle);
+        //assert(msg.type == MSG_WLAN_STATUS);
+        assert(msg.type == MSG_BUTTON);
+        switch (msg.value) {
+            case 1://WLAN_CONNECTED:
+                led_set(LED_GREEN, LED_HIGH);
+                break;
         }
-
-        for (uint8_t i = 0; i < LED_MAX; ++i) {
-            if (   (led[i].mode == LED_ON)
-                || (   (led[i].mode == LED_BLINK)
-                    && (cnt > 28))) {
-                ESP_ERROR_CHECK(ledc_set_duty(LED_MODE, led[i].ch, led[i].duty));
-            } else {
-                ESP_ERROR_CHECK(ledc_set_duty(LED_MODE, led[i].ch, LED_DUTY_OFF));
-            }
-            ESP_ERROR_CHECK(ledc_update_duty(LED_MODE, led[i].ch));
-        }
-
-        cnt = (cnt + 1) % 30;
-        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
