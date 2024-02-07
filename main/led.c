@@ -65,7 +65,7 @@ static led_cfg_t led_cfg[] = { { LED_CHANNEL_RED,    { 0, 200, 1600 } },
 void led_init(void) {
     if (handle) return;
 
-    msg_handle = msg_register(MSG_WLAN_STATUS|MSG_BUTTON);
+    msg_handle = msg_register(MSG_WLAN_STATUS);
 
     ledc_timer_config_t ledc_timer = {
         .speed_mode       = LED_MODE,
@@ -133,15 +133,31 @@ static void led_set(led_color_t color, led_state_t state) {
 }
 
 static void led_task(void *param) {
-    msg_t msg;
-
     for (;;) {
-        msg = msg_receive(msg_handle);
-        //assert(msg.type == MSG_WLAN_STATUS);
-        assert(msg.type == MSG_BUTTON);
+        msg_t msg = msg_receive(msg_handle);
         switch (msg.value) {
-            case 1://WLAN_CONNECTED:
+            case WLAN_SCAN_STARTED:
+                led_set(LED_GREEN, LED_LOW);
+                break;
+            case WLAN_SCAN_FINISHED:
+                led_set(LED_GREEN, LED_OFF);
+                break;
+            case WLAN_CONNECTED:
                 led_set(LED_GREEN, LED_HIGH);
+                break;
+            case WLAN_AP_STARTED:
+                led_set(LED_RED, LED_LOW);
+                break;
+            case WLAN_AP_STOPPED:
+                led_set(LED_RED, LED_OFF);
+                break;
+            case WLAN_AP_CONNECTED:
+                led_set(LED_RED, LED_HIGH);
+                break;
+            case WLAN_AP_DISCONNECTED:
+                led_set(LED_RED, LED_LOW);
+                break;
+            default:
                 break;
         }
     }

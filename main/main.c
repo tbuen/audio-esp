@@ -1,6 +1,7 @@
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <nvs_flash.h>
 //#include "freertos/queue.h"
 
 //#include "string.h"
@@ -10,7 +11,7 @@
 #include "led.h"
 #include "button.h"
 //#include "audio.h"
-//#include "wlan.h"
+#include "wlan.h"
 //#include "http.h"
 //#include "con.h"
 //#include "json.h"
@@ -32,11 +33,13 @@ static const char *TAG = "audio:main";
 void app_main(void) {
     //QueueHandle_t queue;
     //message_t msg;
+    nvs_flash_init();
 
     msg_init();
     nv_init();
     led_init();
     button_init();
+    wlan_init();
 
     //queue = xQueueCreate(20, sizeof(message_t));
 

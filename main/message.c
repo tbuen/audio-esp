@@ -29,7 +29,7 @@ msg_handle_t msg_register(uint8_t msg_types) {
     return handle;
 }
 
-void msg_send_value(uint8_t msg_type, uint8_t value) {
+void msg_send_value(uint8_t msg_type, uint32_t value) {
     xSemaphoreTake(mutex, portMAX_DELAY);
     msg_t msg = {
         .type = msg_type,

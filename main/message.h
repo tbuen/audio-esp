@@ -1,16 +1,27 @@
 #pragma once
 
-#define MSG_BUTTON      0x01
-#define MSG_WLAN_STATUS 0x02
+#define MSG_BUTTON        0x01
+#define MSG_WLAN_STATUS   0x02
 
+#define MSG_WLAN_INTERNAL 0x80
+
+// MSG_BUTTON
+#define BUTTON_PRESSED       1
 // MSG_WLAN_STATUS
-#define WLAN_CONNECTED  1
+#define WLAN_SCAN_STARTED    1
+#define WLAN_SCAN_FINISHED   2
+#define WLAN_AP_STARTED      3
+#define WLAN_AP_STOPPED      4
+#define WLAN_AP_CONNECTED    5
+#define WLAN_AP_DISCONNECTED 6
+#define WLAN_CONNECTED       7
+#define WLAN_DISCONNECTED    8
 
 typedef uint8_t msg_handle_t;
 
 typedef struct {
     uint8_t type;
-    uint8_t value;
+    uint32_t value;
     //union {
     //    uint32_t value;
     //    void *ptr;
@@ -21,7 +32,7 @@ void msg_init(void);
 
 msg_handle_t msg_register(uint8_t msg_types);
 
-void msg_send_value(uint8_t msg_type, uint8_t value);
+void msg_send_value(uint8_t msg_type, uint32_t value);
 
 msg_t msg_receive(msg_handle_t);
 

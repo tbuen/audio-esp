@@ -11,7 +11,7 @@
 #define STACK_SIZE 4096
 
 #define BUTTON_PIN     GPIO_NUM_22
-#define BUTTON_PRESSED 0
+#define BUTTON_ACTIVE  0
 #define BUTTON_DELAY_S 1
 
 // function prototypes
@@ -46,12 +46,12 @@ static void button_task(void *param) {
     uint8_t button_cnt = 0;
 
     for (;;) {
-        if (gpio_get_level(BUTTON_PIN) == BUTTON_PRESSED) {
+        if (gpio_get_level(BUTTON_PIN) == BUTTON_ACTIVE ) {
             if (button_cnt < BUTTON_DELAY_S * 100) {
                 button_cnt++;
                 if (button_cnt == BUTTON_DELAY_S * 100) {
                     ESP_LOGI(TAG, "BUTTON pressed!");
-                    msg_send_value(MSG_BUTTON, 1);
+                    msg_send_value(MSG_BUTTON, BUTTON_PRESSED);
                 }
             }
         } else {
