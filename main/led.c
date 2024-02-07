@@ -52,7 +52,7 @@ static void led_task(void *param);
 
 // local variables
 
-static const char *TAG = "led";
+static const char *TAG = "audio:led";
 static TaskHandle_t handle;
 static msg_handle_t msg_handle;
 static led_cfg_t led_cfg[] = { { LED_CHANNEL_RED,    { 0, 200, 1600 } },

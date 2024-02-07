@@ -20,7 +20,7 @@ static void button_task(void *param);
 
 // local variables
 
-static const char *TAG = "button";
+static const char *TAG = "audio:button";
 static TaskHandle_t handle;
 
 // public functions

@@ -3,4 +3,4 @@
 nvs,         data, nvs,     ,        0x6000,
 phy_init,    data, phy,     ,        0x1000,
 factory,     app,  factory, ,        1M,
-filesystem,  data, fat,     ,        512K,
+filesystem,  data, fat,     ,        528K,

@@ -3,10 +3,10 @@
 #include <freertos/task.h>
 //#include "freertos/queue.h"
 
-//#include "esp_vfs_fat.h"
 //#include "string.h"
 
 #include "message.h"
+#include "nv.h"
 #include "led.h"
 #include "button.h"
 //#include "audio.h"
@@ -15,15 +15,6 @@
 //#include "con.h"
 //#include "json.h"
 
-//#define NUMBER_OF_WIFI_NETWORKS  5
-//#define FILESYSTEM_LABEL         "filesystem"
-//#define MOUNTPOINT               "/spiflash"
-//#define WIFI_CFG_FILE MOUNTPOINT "/wificfg.bin"
-
-//typedef struct {
-//    uint8_t ssid[32];
-//    uint8_t password[64];
-//} wifi_network_t;
 
 //static void connect(void);
 //static void handle_wlan_event(message_t *msg);
@@ -32,11 +23,10 @@
 //static void handle_json_event(message_t *msg);
 //static void handle_audio_event(message_t *msg);
 
-static const char *TAG = "main";
+static const char *TAG = "audio:main";
 
 //static wlan_mode_t wlan_mode = WLAN_MODE_STA;
 //static bool connected;
-//static wifi_network_t wifi_networks[NUMBER_OF_WIFI_NETWORKS];
 //static uint8_t wifi_index;
 
 void app_main(void) {
@@ -44,25 +34,11 @@ void app_main(void) {
     //message_t msg;
 
     msg_init();
+    nv_init();
     led_init();
     button_init();
 
     //queue = xQueueCreate(20, sizeof(message_t));
-
-    /*esp_vfs_fat_mount_config_t fat_config = {
-        .format_if_mount_failed = true,
-        .max_files = 1,
-        .allocation_unit_size = 0
-    };
-    wl_handle_t wl_handle;
-    ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount(MOUNTPOINT, FILESYSTEM_LABEL, &fat_config, &wl_handle));
-    FILE *f = fopen(WIFI_CFG_FILE, "r");
-    if (f) {
-        fread(&wifi_networks, sizeof(wifi_network_t), NUMBER_OF_WIFI_NETWORKS, f);
-        fclose(f);
-    } else {
-        ESP_LOGW(TAG, "could not open %s", WIFI_CFG_FILE);
-    }*/
 
     //audio_init(queue);
     //wlan_init(queue);
@@ -228,13 +204,6 @@ static void handle_json_event(message_t *msg) {
                 memcpy(wifi_networks[0].ssid, wifi_msg->ssid, sizeof(wifi_networks[0].ssid));
                 memcpy(wifi_networks[0].password, wifi_msg->password, sizeof(wifi_networks[0].password));
                 wifi_index = 0;
-                FILE *f = fopen(WIFI_CFG_FILE, "w");
-                if (f) {
-                    fwrite(&wifi_networks, sizeof(wifi_network_t), NUMBER_OF_WIFI_NETWORKS, f);
-                    fclose(f);
-                } else {
-                    ESP_LOGW(TAG, "could not open %s", WIFI_CFG_FILE);
-                }
             }
             break;
         default:
