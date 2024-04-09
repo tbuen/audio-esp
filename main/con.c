@@ -1,41 +1,47 @@
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "string.h"
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <string.h>
 
 #include "config.h"
 #include "message.h"
 #include "con.h"
 
-static const char *TAG = "con";
+// defines
+
+// types
 
 typedef struct {
     con_t con;
+    con_mode_t mode;
     int sockfd;
 } connection_t;
 
-static QueueHandle_t queue;
+// function prototypes
+
+// local variables
+
+static const char *TAG = "audio.con";
 static SemaphoreHandle_t mutex;
-
 static connection_t connection[MAX_CLIENT_CONNECTIONS];
-
 static con_t next_con = 1;
 
-void con_init(QueueHandle_t q) {
-    queue = q;
+// public functions
+
+void con_init(void) {
     mutex = xSemaphoreCreateMutex();
 }
 
-void con_create(int sockfd) {
+void con_create(con_mode_t mode, int sockfd) {
     bool created = false;
     if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
         for (int i = 0; i < sizeof(connection)/sizeof(connection_t); ++i) {
             if (!connection[i].con) {
                 connection[i].con = next_con++;
+                connection[i].mode = mode;
                 connection[i].sockfd = sockfd;
-                ESP_LOGI(TAG, "create con %d socket %d", connection[i].con, connection[i].sockfd);
-                message_t msg = { BASE_CON, EVENT_CONNECTED, NULL };
-                xQueueSendToBack(queue, &msg, 0);
+                ESP_LOGI(TAG, "create con %d mode %d socket %d", connection[i].con, connection[i].mode, connection[i].sockfd);
+                msg_send_value(MSG_CON, CON_CONNECTED);
                 created = true;
                 break;
             }
@@ -54,8 +60,7 @@ void con_delete(int sockfd) {
             if (connection[i].con && connection[i].sockfd == sockfd) {
                 ESP_LOGI(TAG, "delete con %d socket %d", connection[i].con, connection[i].sockfd);
                 memset(&connection[i], 0, sizeof(connection_t));
-                message_t msg = { BASE_CON, EVENT_DISCONNECTED, NULL };
-                xQueueSendToBack(queue, &msg, 0);
+                msg_send_value(MSG_CON, CON_DISCONNECTED);
                 deleted = true;
                 break;
             }
@@ -63,7 +68,7 @@ void con_delete(int sockfd) {
         xSemaphoreGive(mutex);
     }
     if (!deleted) {
-        ESP_LOGE(TAG, "error deleting connection");
+        ESP_LOGW(TAG, "error deleting connection");
     }
 }
 
@@ -110,3 +115,5 @@ bool con_get_sock(con_t con, int *sockfd) {
     }
     return found;
 }
+
+// local functions

@@ -1,5 +1,7 @@
 #include <driver/ledc.h>
 #include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "message.h"
 #include "led.h"
@@ -52,7 +54,7 @@ static void led_task(void *param);
 
 // local variables
 
-static const char *TAG = "audio:led";
+static const char *TAG = "audio.led";
 static TaskHandle_t handle;
 static msg_handle_t msg_handle;
 static led_cfg_t led_cfg[] = { { LED_CHANNEL_RED,    { 0, 200, 1600 } },
@@ -65,7 +67,7 @@ static led_cfg_t led_cfg[] = { { LED_CHANNEL_RED,    { 0, 200, 1600 } },
 void led_init(void) {
     if (handle) return;
 
-    msg_handle = msg_register(MSG_WLAN_STATUS);
+    msg_handle = msg_register(MSG_WLAN_STATUS|MSG_CON);
 
     ledc_timer_config_t ledc_timer = {
         .speed_mode       = LED_MODE,
@@ -135,30 +137,49 @@ static void led_set(led_color_t color, led_state_t state) {
 static void led_task(void *param) {
     for (;;) {
         msg_t msg = msg_receive(msg_handle);
-        switch (msg.value) {
-            case WLAN_SCAN_STARTED:
-                led_set(LED_GREEN, LED_LOW);
-                break;
-            case WLAN_SCAN_FINISHED:
-                led_set(LED_GREEN, LED_OFF);
-                break;
-            case WLAN_CONNECTED:
-                led_set(LED_GREEN, LED_HIGH);
-                break;
-            case WLAN_AP_STARTED:
-                led_set(LED_RED, LED_LOW);
-                break;
-            case WLAN_AP_STOPPED:
-                led_set(LED_RED, LED_OFF);
-                break;
-            case WLAN_AP_CONNECTED:
-                led_set(LED_RED, LED_HIGH);
-                break;
-            case WLAN_AP_DISCONNECTED:
-                led_set(LED_RED, LED_LOW);
-                break;
-            default:
-                break;
+        if (msg.type == MSG_WLAN_STATUS)
+        {
+            switch (msg.value) {
+                case WLAN_SCAN_STARTED:
+                    led_set(LED_GREEN, LED_LOW);
+                    break;
+                case WLAN_SCAN_FINISHED:
+                    led_set(LED_GREEN, LED_OFF);
+                    break;
+                case WLAN_CONNECTED:
+                    led_set(LED_GREEN, LED_HIGH);
+                    break;
+                case WLAN_AP_STARTED:
+                    led_set(LED_RED, LED_LOW);
+                    break;
+                case WLAN_AP_STOPPED:
+                    led_set(LED_RED, LED_OFF);
+                    break;
+                case WLAN_AP_CONNECTED:
+                    led_set(LED_RED, LED_HIGH);
+                    break;
+                case WLAN_AP_DISCONNECTED:
+                    led_set(LED_RED, LED_LOW);
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (msg.type == MSG_CON) {
+            switch (msg.value) {
+                case CON_CONNECTED:
+                    if (con_count()) {
+                        led_set(LED_YELLOW, LED_HIGH);
+                    }
+                    break;
+                case CON_DISCONNECTED:
+                    if (!con_count()) {
+                        led_set(LED_YELLOW, LED_OFF);
+                    }
+                    break;
+                default:
+                    break;
+            }
         }
     }
 }

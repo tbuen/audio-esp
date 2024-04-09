@@ -12,8 +12,8 @@
 #include "button.h"
 //#include "audio.h"
 #include "wlan.h"
-//#include "http.h"
-//#include "con.h"
+#include "http.h"
+#include "con.h"
 //#include "json.h"
 
 
@@ -24,7 +24,7 @@
 //static void handle_json_event(message_t *msg);
 //static void handle_audio_event(message_t *msg);
 
-static const char *TAG = "audio:main";
+static const char *TAG = "audio.main";
 
 //static wlan_mode_t wlan_mode = WLAN_MODE_STA;
 //static bool connected;
@@ -39,6 +39,7 @@ void app_main(void) {
     nv_init();
     led_init();
     button_init();
+    con_init();
     wlan_init();
 
     //queue = xQueueCreate(20, sizeof(message_t));
@@ -51,8 +52,32 @@ void app_main(void) {
 
     //wlan_set_mode(wlan_mode);
 
+    msg_handle_t msg_handle = msg_register(MSG_WLAN_STATUS|MSG_HTTP_WS_RECV);
+
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        msg_t msg = msg_receive(msg_handle);
+        switch (msg.type) {
+            case MSG_HTTP_WS_RECV:
+            {
+                http_ws_msg_t *ws_msg = msg.ptr;
+                ESP_LOGI(TAG, "received [%d]: %s", ws_msg->con, ws_msg->text);
+                msg_free(&msg);
+                break;
+            }
+            default:
+                break;
+        }
+        /*switch (msg.value) {
+            case WLAN_AP_STARTED:
+                http_start(CON_AP);
+                break;
+            case WLAN_AP_STOPPED:
+                http_stop();
+                break;
+            default:
+                break;
+        }*/
+        //vTaskDelay(pdMS_TO_TICKS(1000));
         /*if (xQueueReceive(queue, &msg, pdMS_TO_TICKS(1000)) == pdTRUE) {
             ESP_LOGD(TAG, "received event: %02d", msg.event);
             switch (msg.base) {

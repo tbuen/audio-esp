@@ -1,20 +1,26 @@
-#include "esp_http_server.h"
-#include "esp_log.h"
-#include "unistd.h"
+#include <esp_http_server.h>
+#include <esp_log.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "message.h"
-#include "json.h"
-#include "con.h"
 #include "http.h"
+
+// defines
+
+// types
+
+// function prototypes
 
 static void http_close_fn(httpd_handle_t hd, int sockfd);
 static esp_err_t websocket_handler(httpd_req_t *req);
+static void http_free_ws_msg(void *ptr);
 
-static const char *TAG = "http";
+// local variables
+
+static const char *TAG = "audio.http";
 
 static httpd_handle_t server = NULL;
-static QueueHandle_t queue;
 
 static const httpd_uri_t websocket = {
     .uri = "/websocket",
@@ -25,16 +31,18 @@ static const httpd_uri_t websocket = {
     .handle_ws_control_frames = false
 };
 
-void http_init(QueueHandle_t q) {
-    queue = q;
-}
+// public functions
 
-void http_start(void) {
+void http_start(con_mode_t mode) {
     if (server) return;
+
+    con_mode_t *mode_ptr = malloc(sizeof(con_mode_t));
+    *mode_ptr = mode;
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_open_sockets = MAX_CLIENT_CONNECTIONS;
     config.close_fn = &http_close_fn;
+    config.global_user_ctx = mode_ptr;
 
     if (httpd_start(&server, &config) == ESP_OK) {
         httpd_register_uri_handler(server, &websocket);
@@ -92,6 +100,8 @@ void http_send(con_t con, char *text) {
     }
 }
 
+// local functions
+
 static void http_close_fn(httpd_handle_t hd, int sockfd) {
     ESP_LOGI(TAG, "close socket %d", sockfd);
     close(sockfd);
@@ -100,7 +110,8 @@ static void http_close_fn(httpd_handle_t hd, int sockfd) {
 
 static esp_err_t websocket_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
-        con_create(httpd_req_to_sockfd(req));
+        con_mode_t mode = *(con_mode_t *)httpd_get_global_user_ctx(req->handle);
+        con_create(mode, httpd_req_to_sockfd(req));
         return ESP_OK;
     }
 
@@ -131,13 +142,17 @@ static esp_err_t websocket_handler(httpd_req_t *req) {
 
             con_t con;
             if (con_get_con(httpd_req_to_sockfd(req), &con)) {
-                msg_recv_t *msg_data = calloc(1, sizeof(msg_recv_t));
-                msg_data->con = con;
-                msg_data->text = (char*)buf;
-                message_t msg = { BASE_COM, EVENT_RECV, msg_data };
-                xQueueSendToBack(queue, &msg, 0);
+                http_ws_msg_t *ws_msg = calloc(1, sizeof(http_ws_msg_t));
+                ws_msg->con = con;
+                ws_msg->text = (char*)buf;
+                msg_send_ptr(MSG_HTTP_WS_RECV, ws_msg, &http_free_ws_msg);
             }
         }
     }
     return ret;
+}
+
+static void http_free_ws_msg(void *ptr) {
+    http_ws_msg_t *ws_msg = ptr;
+    free(ws_msg->text);
 }

@@ -3,6 +3,7 @@
 #include <mdns.h>
 //#include "string.h"
 
+#include "http.h"
 #include "message.h"
 #include "wlan.h"
 
@@ -28,7 +29,7 @@ static void wlan_task(void *param);
 
 // local variables
 
-static const char *TAG = "audio:wlan";
+static const char *TAG = "audio.wlan";
 static TaskHandle_t handle;
 static msg_handle_t msg_handle;
 
@@ -59,11 +60,11 @@ void wlan_init(void) {
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wlan_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &wlan_event_handler, NULL, NULL));
 
-    ESP_ERROR_CHECK(esp_netif_set_hostname(intf_ap, "esp32"));
-    ESP_ERROR_CHECK(esp_netif_set_hostname(intf_sta, "esp32"));
+    ESP_ERROR_CHECK(esp_netif_set_hostname(intf_ap, "esp32-audio"));
+    ESP_ERROR_CHECK(esp_netif_set_hostname(intf_sta, "esp32-audio"));
 
     ESP_ERROR_CHECK(mdns_init());
-    ESP_ERROR_CHECK(mdns_hostname_set("esp32"));
+    ESP_ERROR_CHECK(mdns_hostname_set("esp32-audio"));
     ESP_ERROR_CHECK(mdns_service_add("audio-esp", "_audio-jsonrpc-ws", "_tcp", 80, NULL, 0));
 
     if (xTaskCreatePinnedToCore(&wlan_task, "wlan-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
@@ -102,37 +103,24 @@ static void wlan_event_handler(void *arg, esp_event_base_t event_base, int32_t e
             case WIFI_EVENT_SCAN_DONE:
                 break;
             case WIFI_EVENT_STA_CONNECTED:
-                {
-                    //message_t msg = { BASE_WLAN, EVENT_WLAN_STA_CONNECT, NULL };
-                    //xQueueSendToBack(queue, &msg, 0);
-                }
                 break;
             case WIFI_EVENT_STA_DISCONNECTED:
-                {
-                    ESP_LOGI(TAG, "STA disconnected, reason: %d", ((wifi_event_sta_disconnected_t*)event_data)->reason);
-                    //message_t msg = { BASE_WLAN, EVENT_WLAN_STA_DISCONNECT, NULL };
-                    //xQueueSendToBack(queue, &msg, 0);
-                }
+                ESP_LOGI(TAG, "STA disconnected, reason: %d", ((wifi_event_sta_disconnected_t*)event_data)->reason);
+                msg_send_value(MSG_WLAN_INTERNAL, WIFI_EVENT_STA_DISCONNECTED);
+                msg_send_value(MSG_WLAN_STATUS, WLAN_DISCONNECTED);
                 break;
             case WIFI_EVENT_AP_START:
+                msg_send_value(MSG_WLAN_INTERNAL, WIFI_EVENT_AP_START);
                 msg_send_value(MSG_WLAN_STATUS, WLAN_AP_STARTED);
                 break;
             case WIFI_EVENT_AP_STOP:
                 msg_send_value(MSG_WLAN_STATUS, WLAN_AP_STOPPED);
                 break;
             case WIFI_EVENT_AP_STACONNECTED:
-                {
-                    wifi_event_ap_staconnected_t *event = (wifi_event_ap_staconnected_t *)event_data;
-                    ESP_LOGI(TAG, "station "MACSTR" join, AID=%d", MAC2STR(event->mac), event->aid);
-                    msg_send_value(MSG_WLAN_STATUS, WLAN_AP_CONNECTED);
-                }
+                msg_send_value(MSG_WLAN_STATUS, WLAN_AP_CONNECTED);
                 break;
             case WIFI_EVENT_AP_STADISCONNECTED:
-                {
-                    wifi_event_ap_stadisconnected_t *event = (wifi_event_ap_stadisconnected_t *)event_data;
-                    ESP_LOGI(TAG, "station "MACSTR" leave, AID=%d", MAC2STR(event->mac), event->aid);
-                    msg_send_value(MSG_WLAN_STATUS, WLAN_AP_DISCONNECTED);
-                }
+                msg_send_value(MSG_WLAN_STATUS, WLAN_AP_DISCONNECTED);
                 break;
             default:
                 break;
@@ -144,16 +132,12 @@ static void wlan_event_handler(void *arg, esp_event_base_t event_base, int32_t e
                 {
                     ip_event_got_ip_t *event = (ip_event_got_ip_t*)event_data;
                     ESP_LOGI(TAG, "GOT IP: " IPSTR, IP2STR(&event->ip_info.ip));
-                    //message_t msg = { BASE_WLAN, EVENT_WLAN_GOT_IP, NULL };
-                    //xQueueSendToBack(queue, &msg, 0);
+                    msg_send_value(MSG_WLAN_INTERNAL, WIFI_EVENT_STA_CONNECTED);
+                    msg_send_value(MSG_WLAN_STATUS, WLAN_CONNECTED);
                 }
                 break;
             case IP_EVENT_STA_LOST_IP:
-                {
                     ESP_LOGI(TAG, "LOST IP");
-                    //message_t msg = { BASE_WLAN, EVENT_WLAN_LOST_IP, NULL };
-                    //xQueueSendToBack(queue, &msg, 0);
-                }
                 break;
             default:
                 break;
@@ -234,9 +218,11 @@ static void wlan_task(void *param) {
             wifi_mode_t mode;
             ESP_ERROR_CHECK(esp_wifi_get_mode(&mode));
             if (mode == WIFI_MODE_STA) {
+                http_stop();
                 wlan_stop_sta();
                 wlan_start_ap();
             } else if (mode == WIFI_MODE_AP) {
+                http_stop();
                 wlan_stop_ap();
                 wlan_start_sta();
             }
@@ -244,6 +230,15 @@ static void wlan_task(void *param) {
             switch (msg.value) {
                 case WIFI_EVENT_STA_START:
                     wlan_scan();
+                    break;
+                case WIFI_EVENT_AP_START:
+                    http_start(CON_AP);
+                    break;
+                case WIFI_EVENT_STA_CONNECTED:
+                    http_start(CON_STA);
+                    break;
+                case WIFI_EVENT_STA_DISCONNECTED:
+                    http_stop();
                     break;
                 default:
                     break;

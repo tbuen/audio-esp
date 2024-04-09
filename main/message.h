@@ -2,6 +2,8 @@
 
 #define MSG_BUTTON        0x01
 #define MSG_WLAN_STATUS   0x02
+#define MSG_CON           0x04
+#define MSG_HTTP_WS_RECV  0x08
 
 #define MSG_WLAN_INTERNAL 0x80
 
@@ -16,16 +18,23 @@
 #define WLAN_AP_DISCONNECTED 6
 #define WLAN_CONNECTED       7
 #define WLAN_DISCONNECTED    8
+// MSG_CON
+#define CON_CONNECTED        1
+#define CON_DISCONNECTED     2
 
 typedef uint8_t msg_handle_t;
 
+typedef void (*msg_free_t)(void *ptr);
+
 typedef struct {
     uint8_t type;
-    uint32_t value;
-    //union {
-    //    uint32_t value;
-    //    void *ptr;
-    //};
+    union {
+        uint32_t value;
+        struct {
+            void *ptr;
+            msg_free_t free;
+        };
+    };
 } msg_t;
 
 void msg_init(void);
@@ -33,6 +42,10 @@ void msg_init(void);
 msg_handle_t msg_register(uint8_t msg_types);
 
 void msg_send_value(uint8_t msg_type, uint32_t value);
+
+void msg_send_ptr(uint8_t msg_type, void *ptr, msg_free_t free);
+
+void msg_free(msg_t *msg);
 
 msg_t msg_receive(msg_handle_t);
 

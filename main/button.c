@@ -1,5 +1,7 @@
 #include <driver/gpio.h>
 #include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "message.h"
 #include "button.h"
@@ -14,13 +16,15 @@
 #define BUTTON_ACTIVE  0
 #define BUTTON_DELAY_S 1
 
+// types
+
 // function prototypes
 
 static void button_task(void *param);
 
 // local variables
 
-static const char *TAG = "audio:button";
+static const char *TAG = "audio.button";
 static TaskHandle_t handle;
 
 // public functions

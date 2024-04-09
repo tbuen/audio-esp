@@ -1,11 +1,12 @@
 #pragma once
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-
 #include "con.h"
 
-void http_init(QueueHandle_t q);
-void http_start(void);
+typedef struct {
+    con_t con;
+    char *text;
+} http_ws_msg_t;
+ 
+void http_start(con_mode_t mode);
 void http_stop(void);
-void http_send(con_t con, char *text);
+//void http_send(con_t con, char *text);

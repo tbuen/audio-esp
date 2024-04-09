@@ -43,6 +43,28 @@ void msg_send_value(uint8_t msg_type, uint32_t value) {
     xSemaphoreGive(mutex);
 }
 
+void msg_free(msg_t *msg) {
+    if (msg->free) {
+        msg->free(msg->ptr);
+    }
+    free(msg->ptr);
+}
+
+void msg_send_ptr(uint8_t msg_type, void *ptr, msg_free_t free) {
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    msg_t msg = {
+        .type = msg_type,
+        .ptr = ptr,
+        .free = free
+    };
+    for (int i = 0; i < next_handle; ++i) {
+        if (receiver[i].types & msg_type) {
+            assert(xQueueSendToBack(receiver[i].queue, &msg, 0) == pdPASS);
+        }
+    }
+    xSemaphoreGive(mutex);
+}
+
 msg_t msg_receive(msg_handle_t handle) {
     assert(handle < MAX_HANDLES);
     msg_t msg;
