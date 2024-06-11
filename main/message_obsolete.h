@@ -1,3 +1,4 @@
+#if 0
 #pragma once
 
 #define MSG_BUTTON        0x01
@@ -165,3 +166,4 @@ typedef struct {
         audio_file_info_t info;
     };
 } msg_audio_response_t;
+#endif

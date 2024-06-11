@@ -1,21 +1,43 @@
 #include <esp_log.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <nvs_flash.h>
+//#include <freertos/FreeRTOS.h>
+//#include <freertos/task.h>
+//#include <nvs_flash.h>
 //#include "freertos/queue.h"
 
 //#include "string.h"
 
 #include "message.h"
-#include "nv.h"
-#include "led.h"
+//#include "nv.h"
+//#include "led.h"
 #include "button.h"
+#include "connection.h"
 //#include "audio.h"
 #include "wlan.h"
-#include "http.h"
-#include "con.h"
+//#include "http.h"
 //#include "json.h"
 
+/***************************
+***** CONSTANTS ************
+***************************/
+
+/***************************
+***** MACROS ***************
+***************************/
+
+#define TAG "main"
+
+#define LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
+#define LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+#define LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
+#define LOGD(...) ESP_LOGD(TAG, __VA_ARGS__)
+
+/***************************
+***** TYPES ****************
+***************************/
+
+/***************************
+***** LOCAL FUNCTIONS ******
+***************************/
 
 //static void connect(void);
 //static void handle_wlan_event(message_t *msg);
@@ -24,20 +46,26 @@
 //static void handle_json_event(message_t *msg);
 //static void handle_audio_event(message_t *msg);
 
-static const char *TAG = "audio.main";
+/***************************
+***** LOCAL VARIABLES ******
+***************************/
 
 //static wlan_mode_t wlan_mode = WLAN_MODE_STA;
 //static bool connected;
 //static uint8_t wifi_index;
 
+/***************************
+***** PUBLIC FUNCTIONS *****
+***************************/
+
 void app_main(void) {
     //QueueHandle_t queue;
     //message_t msg;
-    nvs_flash_init();
+    //nvs_flash_init();
 
     msg_init();
-    nv_init();
-    led_init();
+    //nv_init();
+    //led_init();
     button_init();
     con_init();
     wlan_init();
@@ -52,18 +80,21 @@ void app_main(void) {
 
     //wlan_set_mode(wlan_mode);
 
-    msg_handle_t msg_handle = msg_register(MSG_WLAN_STATUS|MSG_HTTP_WS_RECV);
+    msg_handle_t msg_handle = msg_register(MSG_WLAN);
 
     for (;;) {
         msg_t msg = msg_receive(msg_handle);
         switch (msg.type) {
-            case MSG_HTTP_WS_RECV:
+            case MSG_WLAN:
+                LOGI("WLAN message received: %lu", msg.value);
+                break;
+            /*case MSG_HTTP_WS_RECV:
             {
                 http_ws_msg_t *ws_msg = msg.ptr;
                 ESP_LOGI(TAG, "received [%d]: %s", ws_msg->con, ws_msg->text);
                 msg_free(&msg);
                 break;
-            }
+            }*/
             default:
                 break;
         }
@@ -117,6 +148,10 @@ void app_main(void) {
         //ESP_LOGI(TAG, "Free heap: %d - minimum: %d", xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
     }
 }
+
+/***************************
+***** LOCAL FUNCTIONS ******
+***************************/
 
 /*static void connect(void) {
     if (wifi_networks[wifi_index].ssid[0] == 0) {
