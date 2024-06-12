@@ -17,7 +17,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-
+        with:
+          submodules: true
       - name: esp-idf build
         uses: espressif/esp-idf-ci-action@v1
         with:
