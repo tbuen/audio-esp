@@ -8,12 +8,12 @@
 
 #include "message.h"
 //#include "nv.h"
-//#include "led.h"
+#include "led.h"
 #include "button.h"
 #include "connection.h"
 //#include "audio.h"
+#include "http_server.h"
 #include "wlan.h"
-//#include "http.h"
 //#include "json.h"
 
 /***************************
@@ -65,9 +65,10 @@ void app_main(void) {
 
     msg_init();
     //nv_init();
-    //led_init();
+    led_init();
     button_init();
     con_init();
+    http_init();
     wlan_init();
 
     //queue = xQueueCreate(20, sizeof(message_t));
@@ -80,14 +81,61 @@ void app_main(void) {
 
     //wlan_set_mode(wlan_mode);
 
-    msg_handle_t msg_handle = msg_register(MSG_WLAN);
+    msg_type_t msg_type_button = button_msg_type();
+    msg_type_t msg_type_wlan = wlan_msg_type();
+
+    msg_handle_t msg_handle = msg_listen(msg_type_button | msg_type_wlan);
 
     for (;;) {
         msg_t msg = msg_receive(msg_handle);
-        switch (msg.type) {
-            case MSG_WLAN:
-                LOGI("WLAN message received: %lu", msg.value);
-                break;
+        if (msg.type == msg_type_button) {
+            if (msg.value == BUTTON_PRESSED) {
+                wlan_toggle_mode();
+            }
+        } else if (msg.type == msg_type_wlan) {
+            LOGI("WLAN message received: %lu", msg.value);
+            switch (msg.value) {
+                case WLAN_CONNECTED:
+                    led_set(LED_GREEN, LED_HIGH);
+                    break;
+                case WLAN_AP_STARTED:
+                    led_set(LED_RED, LED_LOW);
+                    break;
+                case WLAN_AP_STOPPED:
+                    led_set(LED_RED, LED_OFF);
+                    break;
+                case WLAN_AP_CONNECTED:
+                    led_set(LED_RED, LED_HIGH);
+                    break;
+                case WLAN_AP_DISCONNECTED:
+                    led_set(LED_RED, LED_LOW);
+                    break;
+                case WLAN_SCAN_STARTED:
+                    led_set(LED_GREEN, LED_LOW);
+                    break;
+                case WLAN_SCAN_STOPPED:
+                    led_set(LED_GREEN, LED_OFF);
+                    break;
+                default:
+                    break;
+            }
+        /*} else if (msg.type == msg_type_con) {
+            switch (msg.value) {
+                case CON_CONNECTED:
+                    if (con_count()) {
+                        led_set(LED_YELLOW, LED_HIGH);
+                    }
+                    break;
+                case CON_DISCONNECTED:
+                    if (!con_count()) {
+                        led_set(LED_YELLOW, LED_OFF);
+                    }
+                    break;
+                default:
+                    break;
+            }*/
+        } else {
+        }
             /*case MSG_HTTP_WS_RECV:
             {
                 http_ws_msg_t *ws_msg = msg.ptr;
@@ -95,9 +143,6 @@ void app_main(void) {
                 msg_free(&msg);
                 break;
             }*/
-            default:
-                break;
-        }
         /*switch (msg.value) {
             case WLAN_AP_STARTED:
                 http_start(CON_AP);
