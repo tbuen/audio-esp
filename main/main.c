@@ -83,8 +83,10 @@ void app_main(void) {
 
     msg_type_t msg_type_button = button_msg_type();
     msg_type_t msg_type_wlan = wlan_msg_type();
+    msg_type_t msg_type_con = con_msg_type();
+    msg_type_t msg_type_ws_recv = http_msg_type_ws_recv();
 
-    msg_handle_t msg_handle = msg_listen(msg_type_button | msg_type_wlan);
+    msg_handle_t msg_handle = msg_listen(msg_type_button | msg_type_wlan | msg_type_con | msg_type_ws_recv);
 
     for (;;) {
         msg_t msg = msg_receive(msg_handle);
@@ -115,11 +117,21 @@ void app_main(void) {
                     break;
                 case WLAN_SCAN_STOPPED:
                     led_set(LED_GREEN, LED_OFF);
+                    {
+                        uint8_t cnt;
+                        wlan_ap_t *ap;
+                        if (wlan_get_scan_result(&cnt, &ap)) {
+                            for (int i = 0; i < cnt; ++i) {
+                                LOGI("AP %32s %d", ap[i].ssid, ap[i].rssi);
+                            }
+                            wlan_free_scan_result();
+                        }
+                    }
                     break;
                 default:
                     break;
             }
-        /*} else if (msg.type == msg_type_con) {
+        } else if (msg.type == msg_type_con) {
             switch (msg.value) {
                 case CON_CONNECTED:
                     if (con_count()) {
@@ -133,63 +145,13 @@ void app_main(void) {
                     break;
                 default:
                     break;
-            }*/
+            }
+        } else if (msg.type == msg_type_ws_recv) {
+            ws_msg_t *ws_msg = msg.ptr;
+            ESP_LOGI(TAG, "received [%lu]: %s", ws_msg->con, ws_msg->text);
+            msg_free(&msg);
         } else {
         }
-            /*case MSG_HTTP_WS_RECV:
-            {
-                http_ws_msg_t *ws_msg = msg.ptr;
-                ESP_LOGI(TAG, "received [%d]: %s", ws_msg->con, ws_msg->text);
-                msg_free(&msg);
-                break;
-            }*/
-        /*switch (msg.value) {
-            case WLAN_AP_STARTED:
-                http_start(CON_AP);
-                break;
-            case WLAN_AP_STOPPED:
-                http_stop();
-                break;
-            default:
-                break;
-        }*/
-        //vTaskDelay(pdMS_TO_TICKS(1000));
-        /*if (xQueueReceive(queue, &msg, pdMS_TO_TICKS(1000)) == pdTRUE) {
-            ESP_LOGD(TAG, "received event: %02d", msg.event);
-            switch (msg.base) {
-                case BASE_BUTTON:
-                    if (msg.event == EVENT_BUTTON_PRESSED) {
-                        if (wlan_mode == WLAN_MODE_STA) {
-                            wlan_mode = WLAN_MODE_AP;
-                        } else {
-                            wlan_mode = WLAN_MODE_STA;
-                        }
-                        http_stop();
-                        wlan_set_mode(wlan_mode);
-                    }
-                    break;
-                case BASE_WLAN:
-                    handle_wlan_event(&msg);
-                    break;
-                case BASE_CON:
-                    handle_con_event(&msg);
-                    break;
-                case BASE_COM:
-                    handle_com_event(&msg);
-                    break;
-                case BASE_JSON:
-                    handle_json_event(&msg);
-                    break;
-                case BASE_AUDIO:
-                    handle_audio_event(&msg);
-                    break;
-                default:
-                    break;
-            }
-            if (msg.data) {
-                free(msg.data);
-            }
-        }*/
         //ESP_LOGI(TAG, "Free heap: %d - minimum: %d", xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
     }
 }
