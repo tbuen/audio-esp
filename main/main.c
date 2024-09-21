@@ -1,3 +1,4 @@
+#include <stdlib.h> // free
 #include <esp_log.h>
 //#include <freertos/FreeRTOS.h>
 //#include <freertos/task.h>
@@ -14,7 +15,7 @@
 //#include "audio.h"
 #include "http_server.h"
 #include "wlan.h"
-//#include "json.h"
+#include "rpc.h"
 
 /***************************
 ***** CONSTANTS ************
@@ -70,6 +71,7 @@ void app_main(void) {
     con_init();
     http_init();
     wlan_init();
+    rpc_init();
 
     //queue = xQueueCreate(20, sizeof(message_t));
 
@@ -148,7 +150,15 @@ void app_main(void) {
             }
         } else if (msg.type == msg_type_ws_recv) {
             ws_msg_t *ws_msg = msg.ptr;
-            ESP_LOGI(TAG, "received [%lu]: %s", ws_msg->con, ws_msg->text);
+            LOGI("received [%lu]: %s", ws_msg->con, ws_msg->text);
+            rpc_request_t request;
+            char *error;
+            if (rpc_parse_request(ws_msg->text, &request, &error)) {
+                LOGI("successfully parsed :-)");
+            } else {
+                http_send_ws_msg(ws_msg->con, error);
+                free(error);
+            }
             msg_free(&msg);
         } else {
         }
