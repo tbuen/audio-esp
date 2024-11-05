@@ -16,6 +16,7 @@
 #include "http_server.h"
 #include "wlan.h"
 #include "rpc.h"
+#include "handler.h"
 
 /***************************
 ***** CONSTANTS ************
@@ -155,6 +156,13 @@ void app_main(void) {
             char *error;
             if (rpc_parse_request(ws_msg->text, &request, &error)) {
                 LOGI("successfully parsed :-)");
+                rpc_response_t response;
+                if (handle_request(&request, &response)) {
+                    char *resp;
+                    rpc_build_response(&response, &resp);
+                    http_send_ws_msg(ws_msg->con, resp);
+                    free(resp);
+                }
             } else {
                 http_send_ws_msg(ws_msg->con, error);
                 free(error);

@@ -24,9 +24,12 @@
 ***** TYPES ****************
 ***************************/
 
+typedef void (*parse_param_t)(void);
+
 typedef struct {
     rpc_method_t method;
     const char *method_name;
+    parse_param_t parse_param;
 } rpc_table_t;
 
 /***************************
@@ -36,15 +39,16 @@ typedef struct {
 //static void close_fn(httpd_handle_t hd, int sockfd);
 //static esp_err_t websocket_handler(httpd_req_t *req);
 //static void free_ws_msg(void *ptr);
+static void rpc_build_version_result(const rpc_version_t *version, cJSON **result);
 
 /***************************
 ***** LOCAL VARIABLES ******
 ***************************/
 
 static const rpc_table_t rpc_table[] = {
-    { RPC_METHOD_GET_VERSION,          "get-version"          },
-    { RPC_METHOD_GET_MEMINFO,          "get-meminfo"          },
-    { RPC_METHOD_GET_WIFI_SCAN_RESULT, "get-wifi-scan-result" }
+    { RPC_METHOD_GET_VERSION,          "get-version"         , NULL },
+    { RPC_METHOD_GET_MEMINFO,          "get-meminfo"         , NULL },
+    { RPC_METHOD_GET_WIFI_SCAN_RESULT, "get-wifi-scan-result", NULL }
 };
 
 /***************************
@@ -58,15 +62,21 @@ bool rpc_parse_request(const char *text, rpc_request_t *request, char **error) {
     bool ret = false;
     json_rpc_request_t *json_rpc_request;
     if (json_rpc_parse_request(text, &json_rpc_request, error)) {
-        for (uint8_t i = 0; i < sizeof(rpc_table)/sizeof(rpc_table[0]); ++i) {
+        uint8_t i;
+        for (i = 0; i < sizeof(rpc_table)/sizeof(rpc_table[0]); ++i) {
             if (!strcmp(json_rpc_request->method, rpc_table[i].method_name)) {
                 request->method = rpc_table[i].method;
-                // TODO params
-                ret = true;
+                if (json_rpc_request->params && rpc_table[i].parse_param) {
+                   // TODO parse params
+                } else if (!json_rpc_request->params && !rpc_table[i].parse_param) {
+                    ret = true;
+                } else {
+                    json_rpc_build_error_invalid_params(json_rpc_request->id, error);
+                }
                 break;
             }
         }
-        if (!ret) {
+        if (i == sizeof(rpc_table)/sizeof(rpc_table[0])) {
             json_rpc_build_error_method_not_found(json_rpc_request->id, error);
         }
         cJSON_Delete(json_rpc_request->params);
@@ -76,6 +86,35 @@ bool rpc_parse_request(const char *text, rpc_request_t *request, char **error) {
     return ret;
 }
 
+void rpc_build_response(const rpc_response_t *response, char **resp) {
+    if (response->error == RPC_ERROR_NO_ERROR) {
+        cJSON *result = NULL;
+        switch (response->method) {
+            case RPC_METHOD_GET_VERSION:
+                rpc_build_version_result(&response->result.version, &result);
+                json_rpc_build_response(result, resp);
+                break;
+            default:
+                json_rpc_build_error(RPC_ERROR_NOT_IMPLEMENTED, resp);
+                break;
+        }
+    } else {
+        json_rpc_build_error(response->error, resp);
+    }
+}
+
+/***************************
+***** LOCAL FUNCTIONS ******
+***************************/
+
+static void rpc_build_version_result(const rpc_version_t *version, cJSON **result) {
+    *result = cJSON_CreateObject();
+    cJSON_AddStringToObject(*result, "project", version->project);
+    cJSON_AddStringToObject(*result, "version", version->version);
+    cJSON_AddStringToObject(*result, "esp-idf", version->idf_ver);
+    cJSON_AddStringToObject(*result, "date", version->date);
+    cJSON_AddStringToObject(*result, "time", version->time);
+}
 
 /*#define JSON_NO_ERROR              0
 #define JSON_DEFER_RESPONSE       -1
