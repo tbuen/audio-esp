@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cJSON.h>
+
 /********************
 ***** CONSTANTS *****
 ********************/
@@ -16,5 +18,4 @@
 ***** FUNCTIONS *****
 ********************/
 
-void rpc_init(void);
-char *rpc_handle_request(const char *request);
+cJSON *rpc_json_result_get_version(void *result);

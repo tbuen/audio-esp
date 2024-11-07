@@ -16,7 +16,6 @@
 #include "http_server.h"
 #include "wlan.h"
 #include "rpc.h"
-#include "handler.h"
 
 /***************************
 ***** CONSTANTS ************
@@ -152,7 +151,12 @@ void app_main(void) {
         } else if (msg.type == msg_type_ws_recv) {
             ws_msg_t *ws_msg = msg.ptr;
             LOGI("received [%lu]: %s", ws_msg->con, ws_msg->text);
-            rpc_request_t request;
+            char *response = rpc_handle_request(ws_msg->text);
+            if (response) {
+                http_send_ws_msg(ws_msg->con, response);
+                free(response);
+            }
+            /*rpc_request_t request;
             char *error;
             if (rpc_parse_request(ws_msg->text, &request, &error)) {
                 LOGI("successfully parsed :-)");
@@ -166,7 +170,7 @@ void app_main(void) {
             } else {
                 http_send_ws_msg(ws_msg->con, error);
                 free(error);
-            }
+            }*/
             msg_free(&msg);
         } else {
         }

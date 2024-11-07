@@ -1,9 +1,5 @@
 #pragma once
 
-#include <stdbool.h>
-
-#include "rpc.h"
-
 /********************
 ***** CONSTANTS *****
 ********************/
@@ -20,4 +16,4 @@
 ***** FUNCTIONS *****
 ********************/
 
-bool handle_request(const rpc_request_t *request, rpc_response_t *response);
+void rpc_handler_get_version(void *params, void **result);
