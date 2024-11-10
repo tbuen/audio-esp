@@ -24,10 +24,10 @@
 ***************************/
 
 static const json_rpc_config_t rpc_config[] = {
-    { "get-version"         , &rpc_handler_get_version, NULL, &rpc_json_result_get_version },
-    { "get-meminfo"         , NULL                    , NULL, NULL                         },
-    { "get-wifi-scan-result", NULL                    , NULL, NULL                         },
-    { NULL                  , NULL                    , NULL, NULL                         }
+    { "get-version"         , &rpc_handler_get_version         , NULL, &rpc_json_result_get_version          },
+    { "get-meminfo"         , NULL                             , NULL, NULL                                  },
+    { "get-wifi-scan-result", &rpc_handler_get_wifi_scan_result, NULL, &rpc_json_result_get_wifi_scan_result },
+    { NULL                  , NULL                             , NULL, NULL                                  }
 };
 
 /***************************

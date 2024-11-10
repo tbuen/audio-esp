@@ -1,8 +1,12 @@
 #pragma once
 
+#include <stdint.h>
+
 /********************
 ***** CONSTANTS *****
 ********************/
+
+#define RPC_WLAN_SCAN_RESULT_MAX_AP  10
 
 /********************
 ***** MACROS ********
@@ -19,6 +23,14 @@ typedef struct {
     char date[16];
     char time[16];
 } rpc_result_get_version_t;
+
+typedef struct {
+    uint8_t cnt;
+    struct {
+        char ssid[33];
+        uint8_t rssi;
+    } ap[RPC_WLAN_SCAN_RESULT_MAX_AP];
+} rpc_result_get_wlan_scan_result_t;
 
 /********************
 ***** FUNCTIONS *****

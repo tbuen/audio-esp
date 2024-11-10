@@ -119,16 +119,6 @@ void app_main(void) {
                     break;
                 case WLAN_SCAN_STOPPED:
                     led_set(LED_GREEN, LED_OFF);
-                    {
-                        uint8_t cnt;
-                        wlan_ap_t *ap;
-                        if (wlan_get_scan_result(&cnt, &ap)) {
-                            for (int i = 0; i < cnt; ++i) {
-                                LOGI("AP %32s %d", ap[i].ssid, ap[i].rssi);
-                            }
-                            wlan_free_scan_result();
-                        }
-                    }
                     break;
                 default:
                     break;
