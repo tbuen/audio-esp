@@ -1,14 +1,12 @@
-#include <stdlib.h> // free
 #include <esp_log.h>
 //#include <freertos/FreeRTOS.h>
-//#include <freertos/task.h>
-//#include <nvs_flash.h>
 //#include "freertos/queue.h"
-
-//#include "string.h"
+//#include <freertos/task.h>
+#include <nvs_flash.h>
+#include <stdlib.h>
 
 #include "message.h"
-//#include "nv.h"
+#include "filesystem.h"
 #include "led.h"
 #include "button.h"
 #include "connection.h"
@@ -60,28 +58,17 @@
 ***************************/
 
 void app_main(void) {
-    //QueueHandle_t queue;
-    //message_t msg;
-    //nvs_flash_init();
+    nvs_flash_init();
 
     msg_init();
-    //nv_init();
+    fs_init();
     led_init();
     button_init();
+    //audio_init(queue);
+    rpc_init();
     con_init();
     http_init();
     wlan_init();
-    rpc_init();
-
-    //queue = xQueueCreate(20, sizeof(message_t));
-
-    //audio_init(queue);
-    //wlan_init(queue);
-    //http_init(queue);
-    //con_init(queue);
-    //json_init(queue);
-
-    //wlan_set_mode(wlan_mode);
 
     msg_type_t msg_type_button = button_msg_type();
     msg_type_t msg_type_wlan = wlan_msg_type();
@@ -146,21 +133,6 @@ void app_main(void) {
                 http_send_ws_msg(ws_msg->con, response);
                 free(response);
             }
-            /*rpc_request_t request;
-            char *error;
-            if (rpc_parse_request(ws_msg->text, &request, &error)) {
-                LOGI("successfully parsed :-)");
-                rpc_response_t response;
-                if (handle_request(&request, &response)) {
-                    char *resp;
-                    rpc_build_response(&response, &resp);
-                    http_send_ws_msg(ws_msg->con, resp);
-                    free(resp);
-                }
-            } else {
-                http_send_ws_msg(ws_msg->con, error);
-                free(error);
-            }*/
             msg_free(&msg);
         } else {
         }

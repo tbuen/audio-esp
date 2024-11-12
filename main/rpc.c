@@ -1,4 +1,5 @@
 #include "json_rpc.h"
+#include "rpc_types.h"
 #include "rpc_handler.h"
 #include "rpc_json.h"
 #include "rpc.h"
@@ -24,10 +25,19 @@
 ***************************/
 
 static const json_rpc_config_t rpc_config[] = {
-    { "get-version"         , &rpc_handler_get_version         , NULL, &rpc_json_result_get_version          },
-    { "get-meminfo"         , NULL                             , NULL, NULL                                  },
-    { "get-wifi-scan-result", &rpc_handler_get_wifi_scan_result, NULL, &rpc_json_result_get_wifi_scan_result },
-    { NULL                  , NULL                             , NULL, NULL                                  }
+    { "get-version"          , &rpc_handler_get_version          , NULL                                , &rpc_json_result_get_version           },
+    { "get-meminfo"          , NULL                              , NULL                                , NULL                                   },
+    { "get-wifi-scan-result" , &rpc_handler_get_wifi_scan_result , NULL                                , &rpc_json_result_get_wifi_scan_result  },
+    { "get-wifi-network-list", &rpc_handler_get_wifi_network_list, NULL                                , &rpc_json_result_get_wifi_network_list },
+    { "set-wifi-network"     , &rpc_handler_set_wifi_network     , &rpc_json_params_set_wifi_network   , &rpc_json_result_error                 },
+    { "delete-wifi-network"  , &rpc_handler_delete_wifi_network  , &rpc_json_params_delete_wifi_network, &rpc_json_result_error                 },
+    { NULL                   , NULL                              , NULL                                , NULL                                   }
+};
+
+static const json_rpc_error_config_t rpc_err_config[] = {
+    { RPC_ERROR_NO_SPACE_LEFT, "no space left" },
+    { RPC_ERROR_NOT_FOUND    , "not found"     },
+    { RPC_ERROR_NO_ERROR     , NULL            }
 };
 
 /***************************
@@ -35,7 +45,7 @@ static const json_rpc_config_t rpc_config[] = {
 ***************************/
 
 void rpc_init(void) {
-    json_rpc_init(rpc_config);
+    json_rpc_init(rpc_config, rpc_err_config);
 }
 
 char *rpc_handle_request(const char *request) {
