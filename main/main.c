@@ -1,7 +1,5 @@
 #include <esp_log.h>
-//#include <freertos/FreeRTOS.h>
-//#include "freertos/queue.h"
-//#include <freertos/task.h>
+#include <freertos/idf_additions.h>
 #include <nvs_flash.h>
 #include <stdlib.h>
 
@@ -18,6 +16,8 @@
 /***************************
 ***** CONSTANTS ************
 ***************************/
+
+#define MSG_IDLE_CHECK  1
 
 /***************************
 ***** MACROS ***************
@@ -38,20 +38,13 @@
 ***** LOCAL FUNCTIONS ******
 ***************************/
 
-//static void connect(void);
-//static void handle_wlan_event(message_t *msg);
-//static void handle_con_event(message_t *msg);
-//static void handle_com_event(message_t *msg);
-//static void handle_json_event(message_t *msg);
-//static void handle_audio_event(message_t *msg);
+static void idle_check_timer_cb(TimerHandle_t timer);
 
 /***************************
 ***** LOCAL VARIABLES ******
 ***************************/
 
-//static wlan_mode_t wlan_mode = WLAN_MODE_STA;
-//static bool connected;
-//static uint8_t wifi_index;
+static msg_type_t msg_type_int;
 
 /***************************
 ***** PUBLIC FUNCTIONS *****
@@ -70,16 +63,27 @@ void app_main(void) {
     http_init();
     wlan_init();
 
+    msg_type_int = msg_register();
     msg_type_t msg_type_button = button_msg_type();
     msg_type_t msg_type_wlan = wlan_msg_type();
     msg_type_t msg_type_con = con_msg_type();
     msg_type_t msg_type_ws_recv = http_msg_type_ws_recv();
 
-    msg_handle_t msg_handle = msg_listen(msg_type_button | msg_type_wlan | msg_type_con | msg_type_ws_recv);
+    msg_handle_t msg_handle = msg_listen(msg_type_int | msg_type_button | msg_type_wlan | msg_type_con | msg_type_ws_recv);
+
+    TimerHandle_t timer = xTimerCreate("idle-check", pdMS_TO_TICKS(500), true, NULL, idle_check_timer_cb);
+    xTimerStart(timer, 0);
 
     for (;;) {
         msg_t msg = msg_receive(msg_handle);
-        if (msg.type == msg_type_button) {
+        if (msg.type == msg_type_int) {
+            if (msg.value == MSG_IDLE_CHECK) {
+                int sockfd;
+                if (con_stale(&sockfd)) {
+                    http_close(sockfd);
+                }
+            }
+        } else if (msg.type == msg_type_button) {
             if (msg.value == BUTTON_PRESSED) {
                 wlan_toggle_mode();
             }
@@ -88,6 +92,9 @@ void app_main(void) {
             switch (msg.value) {
                 case WLAN_CONNECTED:
                     led_set(LED_GREEN, LED_HIGH);
+                    break;
+                case WLAN_DISCONNECTED:
+                    led_set(LED_GREEN, LED_OFF);
                     break;
                 case WLAN_AP_STARTED:
                     led_set(LED_RED, LED_LOW);
@@ -144,128 +151,11 @@ void app_main(void) {
 ***** LOCAL FUNCTIONS ******
 ***************************/
 
-/*static void connect(void) {
-    if (wifi_networks[wifi_index].ssid[0] == 0) {
-        wifi_index = 0;
-    }
-    if (wifi_networks[wifi_index].ssid[0] != 0) {
-        wlan_connect(wifi_networks[wifi_index].ssid, wifi_networks[wifi_index].password);
-        wifi_index = (wifi_index + 1) % NUMBER_OF_WIFI_NETWORKS;
-    } else {
-        ESP_LOGI(TAG, "no wifi configured");
-    }
+static void idle_check_timer_cb(TimerHandle_t timer) {
+    msg_send_value(msg_type_int, MSG_IDLE_CHECK);
 }
 
-static void handle_wlan_event(message_t *msg) {
-    switch (msg->event) {
-        case EVENT_WLAN_AP_START:
-            http_start();
-            //led_set(LED_RED, LED_BLINK);
-            break;
-        case EVENT_WLAN_AP_STOP:
-            //led_set(LED_RED, LED_OFF);
-            http_stop();
-            break;
-        case EVENT_WLAN_AP_CONNECT:
-            //led_set(LED_RED, LED_ON);
-            break;
-        case EVENT_WLAN_AP_DISCONNECT:
-            //led_set(LED_RED, LED_BLINK);
-            break;
-        case EVENT_WLAN_STA_START:
-            //led_set(LED_GREEN, LED_BLINK);
-            connect();
-            break;
-        case EVENT_WLAN_STA_STOP:
-            //led_set(LED_GREEN, LED_OFF);
-            http_stop();
-            break;
-        case EVENT_WLAN_STA_CONNECT:
-            break;
-        case EVENT_WLAN_STA_DISCONNECT:
-            if (connected) {
-                //led_set(LED_GREEN, LED_BLINK);
-                http_stop();
-                connected = false;
-            }
-            if (wlan_mode == WLAN_MODE_STA) {
-                connect();
-            }
-            break;
-        case EVENT_WLAN_GOT_IP:
-            connected = true;
-            //led_set(LED_GREEN, LED_ON);
-            http_start();
-            break;
-        case EVENT_WLAN_LOST_IP:
-            if (connected) {
-                //led_set(LED_GREEN, LED_BLINK);
-                http_stop();
-                connected = false;
-            }
-            break;
-        default:
-            break;
-    }
-}
-
-static void handle_con_event(message_t *msg) {
-    switch (msg->event) {
-        case EVENT_CONNECTED:
-            if (con_count()) {
-                //led_set(LED_YELLOW, LED_ON);
-            }
-            break;
-        case EVENT_DISCONNECTED:
-            if (!con_count()) {
-                //led_set(LED_YELLOW, LED_OFF);
-            }
-            break;
-        default:
-            break;
-    }
-}
-
-static void handle_com_event(message_t *msg) {
-    switch (msg->event) {
-        case EVENT_RECV:
-            if (msg->data) {
-                msg_recv_t *msg_data = (msg_recv_t*)msg->data;
-                json_recv(msg_data->con, msg_data->text);
-                free(msg_data->text);
-            }
-            break;
-        case EVENT_SEND:
-            if (msg->data) {
-                msg_send_t *msg_data = (msg_send_t*)msg->data;
-                http_send(msg_data->con, msg_data->text);
-                free(msg_data->text);
-            }
-            break;
-        default:
-            break;
-    }
-}
-
-static void handle_json_event(message_t *msg) {
-    switch (msg->event) {
-        case EVENT_JSON_ADD_WIFI:
-            if (msg->data) {
-                wifi_msg_t *wifi_msg = (wifi_msg_t*)msg->data;
-                for (int i = NUMBER_OF_WIFI_NETWORKS - 1; i > 0; --i) {
-                    wifi_networks[i] = wifi_networks[i-1];
-                }
-                memcpy(wifi_networks[0].ssid, wifi_msg->ssid, sizeof(wifi_networks[0].ssid));
-                memcpy(wifi_networks[0].password, wifi_msg->password, sizeof(wifi_networks[0].password));
-                wifi_index = 0;
-            }
-            break;
-        default:
-            break;
-    }
-}
-
-static void handle_audio_event(message_t *msg) {
+/*static void handle_audio_event(message_t *msg) {
     switch (msg->event) {
         case EVENT_AUDIO_REQUEST:
             if (msg->data) {
