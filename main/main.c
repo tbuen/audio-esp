@@ -51,7 +51,10 @@ static msg_type_t msg_type_int;
 ***************************/
 
 void app_main(void) {
-    nvs_flash_init();
+    if (nvs_flash_init() != ESP_OK) {
+       ESP_ERROR_CHECK(nvs_flash_erase());
+       ESP_ERROR_CHECK(nvs_flash_init());
+    };
 
     msg_init();
     fs_init();
