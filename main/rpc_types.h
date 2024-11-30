@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include "filesystem.h"
+
 /********************
 ***** CONSTANTS *****
 ********************/
@@ -32,6 +34,8 @@ typedef struct {
     char date[16];
     char time[16];
 } rpc_result_get_version_t;
+
+typedef fs_web_info_t rpc_result_get_info_spiflash_t;
 
 typedef struct {
     uint8_t cnt;

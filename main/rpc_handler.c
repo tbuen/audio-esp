@@ -41,6 +41,12 @@ void rpc_handler_get_version(void *params, void **result) {
     *result = version;
 }
 
+void rpc_handler_get_info_spiflash(void *params, void **result) {
+    rpc_result_get_info_spiflash_t *info = calloc(1, sizeof(rpc_result_get_info_spiflash_t));
+    fs_web_info(info);
+    *result = info;
+}
+
 void rpc_handler_get_wifi_scan_result(void *params, void **result) {
     rpc_result_get_wifi_scan_result_t *scan_result = calloc(1, sizeof(rpc_result_get_wifi_scan_result_t));
     uint8_t cnt;

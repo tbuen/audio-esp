@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cJSON.h"
 #include "rpc_types.h"
 #include "rpc_json.h"
 
@@ -47,6 +46,24 @@ uint8_t rpc_json_result_get_version(void *result, cJSON **json) {
     cJSON_AddStringToObject(*json, "esp-idf", version->idf_ver);
     cJSON_AddStringToObject(*json, "date", version->date);
     cJSON_AddStringToObject(*json, "time", version->time);
+    free(result);
+    return RPC_ERROR_NO_ERROR;
+}
+
+uint8_t rpc_json_result_get_info_spiflash(void *result, cJSON **json) {
+    rpc_result_get_info_spiflash_t *info = result;
+    *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(*json, "total", info->total);
+    cJSON_AddNumberToObject(*json, "free", info->free);
+    cJSON *files = cJSON_CreateArray();
+    for (int i = 0; i < info->num_files; ++i) {
+        cJSON *file = cJSON_CreateObject();
+        cJSON_AddStringToObject(file, "name", info->files[i].name);
+        cJSON_AddStringToObject(file, "content-type", info->files[i].content_type);
+        cJSON_AddNumberToObject(file, "size", info->files[i].size);
+        cJSON_AddItemToArray(files, file);
+    }
+    cJSON_AddItemToObject(*json, "files", files);
     free(result);
     return RPC_ERROR_NO_ERROR;
 }

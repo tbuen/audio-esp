@@ -26,7 +26,9 @@
 
 static const json_rpc_config_t rpc_config[] = {
     { "get-version"          , &rpc_handler_get_version          , NULL                                , &rpc_json_result_get_version           },
-    { "get-meminfo"          , NULL                              , NULL                                , NULL                                   },
+    { "get-info-memory"      , NULL                              , NULL                                , NULL                                   },
+    { "get-info-spiflash"    , &rpc_handler_get_info_spiflash    , NULL                                , &rpc_json_result_get_info_spiflash     },
+    { "get-info-sdcard"      , NULL                              , NULL                                , NULL                                   },
     { "get-wifi-scan-result" , &rpc_handler_get_wifi_scan_result , NULL                                , &rpc_json_result_get_wifi_scan_result  },
     { "get-wifi-network-list", &rpc_handler_get_wifi_network_list, NULL                                , &rpc_json_result_get_wifi_network_list },
     { "set-wifi-network"     , &rpc_handler_set_wifi_network     , &rpc_json_params_set_wifi_network   , &rpc_json_result_error                 },
