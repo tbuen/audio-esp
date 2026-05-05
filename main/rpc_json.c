@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "rpc_types.h"
@@ -52,6 +53,7 @@ uint8_t rpc_json_result_get_version(void *result, cJSON **json) {
 
 uint8_t rpc_json_result_get_info_spiflash(void *result, cJSON **json) {
     rpc_result_get_info_spiflash_t *info = result;
+    char buffer[33] = {0};
     *json = cJSON_CreateObject();
     cJSON_AddNumberToObject(*json, "total", info->total);
     cJSON_AddNumberToObject(*json, "free", info->free);
@@ -61,6 +63,10 @@ uint8_t rpc_json_result_get_info_spiflash(void *result, cJSON **json) {
         cJSON_AddStringToObject(file, "name", info->files[i].name);
         cJSON_AddStringToObject(file, "content-type", info->files[i].content_type);
         cJSON_AddNumberToObject(file, "size", info->files[i].size);
+        for (int j = 0; j < 16; ++j) {
+            sprintf(&buffer[2*j], "%02x", info->files[i].md5[j]);
+        }
+        cJSON_AddStringToObject(file, "md5", buffer);
         cJSON_AddItemToArray(files, file);
     }
     cJSON_AddItemToObject(*json, "files", files);
