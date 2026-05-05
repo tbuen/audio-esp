@@ -1,14 +1,6 @@
 name: build
 
-on:
-  push:
-    branches:
-      - main
-      - release/*
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
+on: push:
 
 jobs:
   build:
@@ -16,11 +8,11 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: true
-      - name: esp-idf build
+      - name: build
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: v5.3.1
+          esp_idf_version: v6.0.1
           target: esp32
