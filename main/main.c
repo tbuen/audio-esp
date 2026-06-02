@@ -138,7 +138,7 @@ void app_main(void) {
         } else if (msg.type == msg_type_ws_recv) {
             ws_msg_t *ws_msg = msg.ptr;
             LOGI("received [%lu]: %s", ws_msg->con, ws_msg->text);
-            char *response = rpc_handle_request(ws_msg->text);
+            char *response = rpc_handle_request(ws_msg->con, ws_msg->text);
             if (response) {
                 http_send_ws_msg(ws_msg->con, response);
                 free(response);

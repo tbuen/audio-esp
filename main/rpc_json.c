@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "connection.h"
 #include "rpc_types.h"
 #include "rpc_json.h"
 
@@ -39,14 +40,22 @@ uint8_t rpc_json_result_error(void *result, cJSON **json) {
     return error;
 }
 
-uint8_t rpc_json_result_get_version(void *result, cJSON **json) {
-    rpc_result_get_version_t *version = result;
+uint8_t rpc_json_result_get_info_con(void *result, cJSON **json) {
+    rpc_result_get_info_con_t *info = result;
     *json = cJSON_CreateObject();
-    cJSON_AddStringToObject(*json, "project", version->project);
-    cJSON_AddStringToObject(*json, "version", version->version);
-    cJSON_AddStringToObject(*json, "esp-idf", version->idf_ver);
-    cJSON_AddStringToObject(*json, "date", version->date);
-    cJSON_AddStringToObject(*json, "time", version->time);
+    cJSON_AddStringToObject(*json, "mode", info->mode == CON_STA ? "STA" : "AP");
+    free(result);
+    return RPC_ERROR_NO_ERROR;
+}
+
+uint8_t rpc_json_result_get_info_about(void *result, cJSON **json) {
+    rpc_result_get_info_about_t *info = result;
+    *json = cJSON_CreateObject();
+    cJSON_AddStringToObject(*json, "project", info->project);
+    cJSON_AddStringToObject(*json, "version", info->version);
+    cJSON_AddStringToObject(*json, "esp-idf", info->idf_ver);
+    cJSON_AddStringToObject(*json, "date", info->date);
+    cJSON_AddStringToObject(*json, "time", info->time);
     free(result);
     return RPC_ERROR_NO_ERROR;
 }
@@ -76,29 +85,28 @@ uint8_t rpc_json_result_get_info_spiflash(void *result, cJSON **json) {
 
 uint8_t rpc_json_result_get_wifi_scan_result(void *result, cJSON **json) {
     rpc_result_get_wifi_scan_result_t *scan_result = result;
-    *json = cJSON_CreateArray();
-    for (int i = 0; i < scan_result->cnt; ++i) {
-        cJSON *ap = cJSON_CreateObject();
-        cJSON_AddStringToObject(ap, "ssid", scan_result->ap[i].ssid);
-        cJSON_AddNumberToObject(ap, "rssi", scan_result->ap[i].rssi);
-        cJSON_AddItemToArray(*json, ap);
+    uint8_t error = scan_result->error;
+    if (error == RPC_ERROR_NO_ERROR) {
+        *json = cJSON_CreateArray();
+        for (int i = 0; i < scan_result->cnt; ++i) {
+            cJSON *ap = cJSON_CreateObject();
+            cJSON_AddStringToObject(ap, "ssid", scan_result->ap[i].ssid);
+            cJSON_AddNumberToObject(ap, "rssi", scan_result->ap[i].rssi);
+            cJSON_AddItemToArray(*json, ap);
+        }
     }
     free(result);
-    return RPC_ERROR_NO_ERROR;
+    return error;
 }
 
 uint8_t rpc_json_result_get_wifi_network_list(void *result, cJSON **json) {
     rpc_result_get_wifi_network_list_t *network_list = result;
-    *json = cJSON_CreateArray();
-    for (int i = 0; i < RPC_WIFI_NUMBER_OF_NETWORKS; ++i) {
-        if (network_list->network[i].ssid[0]) {
-            cJSON *network = cJSON_CreateObject();
-            cJSON_AddStringToObject(network, "ssid", network_list->network[i].ssid);
-            cJSON_AddItemToArray(*json, network);
-        }
+    uint8_t error = network_list->error;
+    if (error == RPC_ERROR_NO_ERROR) {
+        *json = network_list->networks;
     }
     free(result);
-    return RPC_ERROR_NO_ERROR;
+    return error;
 }
 
 void *rpc_json_params_set_wifi_network(cJSON *params) {

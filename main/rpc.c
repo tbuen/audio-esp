@@ -25,7 +25,8 @@
 ***************************/
 
 static const json_rpc_config_t rpc_config[] = {
-    { "get-version"          , &rpc_handler_get_version          , NULL                                , &rpc_json_result_get_version           },
+    { "get-info-con"         , &rpc_handler_get_info_con         , NULL                                , &rpc_json_result_get_info_con          },
+    { "get-info-about"       , &rpc_handler_get_info_about       , NULL                                , &rpc_json_result_get_info_about        },
     { "get-info-memory"      , NULL                              , NULL                                , NULL                                   },
     { "get-info-spiflash"    , &rpc_handler_get_info_spiflash    , NULL                                , &rpc_json_result_get_info_spiflash     },
     { "get-info-sdcard"      , NULL                              , NULL                                , NULL                                   },
@@ -37,9 +38,10 @@ static const json_rpc_config_t rpc_config[] = {
 };
 
 static const json_rpc_error_config_t rpc_err_config[] = {
-    { RPC_ERROR_NO_SPACE_LEFT, "no space left" },
-    { RPC_ERROR_NOT_FOUND    , "not found"     },
-    { RPC_ERROR_NO_ERROR     , NULL            }
+    { RPC_ERROR_NOT_ALLOWED_IN_STA_MODE, "not allowed in STA mode" },
+    { RPC_ERROR_NO_SPACE_LEFT          , "no space left"           },
+    { RPC_ERROR_NOT_FOUND              , "not found"               },
+    { RPC_ERROR_NO_ERROR               , NULL                      }
 };
 
 /***************************
@@ -50,8 +52,8 @@ void rpc_init(void) {
     json_rpc_init(rpc_config, rpc_err_config);
 }
 
-char *rpc_handle_request(const char *request) {
-    return json_rpc_handle_request(request);
+char *rpc_handle_request(con_id_t con, const char *request) {
+    return json_rpc_handle_request((void*)con, request);
 }
 
 /***************************
