@@ -1,5 +1,6 @@
 managed_components/
 build/
+spiflash_image/wificfg.json
 .vscode/
 .cache/
 dependencies.lock
