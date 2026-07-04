@@ -57,7 +57,9 @@ void rpc_handler_get_info_spiflash(void *ctx, void *params, void **result) {
 
 void rpc_handler_get_wifi_scan_result(void *ctx, void *params, void **result) {
     rpc_result_get_wifi_scan_result_t *scan_result = calloc(1, sizeof(rpc_result_get_wifi_scan_result_t));
-    if ((con_id_t)ctx == CON_STA) {
+    con_mode_t mode = CON_STA;
+    con_get_mode((con_id_t)ctx, &mode);
+    if (mode == CON_STA) {
         scan_result->error = RPC_ERROR_NOT_ALLOWED_IN_STA_MODE;
     } else {
         scan_result->error = RPC_ERROR_NO_ERROR;
@@ -84,7 +86,9 @@ void rpc_handler_get_wifi_scan_result(void *ctx, void *params, void **result) {
 
 void rpc_handler_get_wifi_network_list(void *ctx, void *params, void **result) {
     rpc_result_get_wifi_network_list_t *network_list = malloc(sizeof(rpc_result_get_wifi_network_list_t));
-    if ((con_id_t)ctx == CON_STA) {
+    con_mode_t mode = CON_STA;
+    con_get_mode((con_id_t)ctx, &mode);
+    if (mode == CON_STA) {
         network_list->error = RPC_ERROR_NOT_ALLOWED_IN_STA_MODE;
     } else {
         network_list->error = RPC_ERROR_NO_ERROR;
@@ -105,7 +109,9 @@ void rpc_handler_get_wifi_network_list(void *ctx, void *params, void **result) {
 
 void rpc_handler_set_wifi_network(void *ctx, void *params, void **result) {
     rpc_result_error_t *result_obj = calloc(1, sizeof(rpc_result_error_t));
-    if ((con_id_t)ctx == CON_STA) {
+    con_mode_t mode = CON_STA;
+    con_get_mode((con_id_t)ctx, &mode);
+    if (mode == CON_STA) {
         result_obj->error = RPC_ERROR_NOT_ALLOWED_IN_STA_MODE;
     } else {
         rpc_params_set_wifi_network_t *set = params;
@@ -140,7 +146,9 @@ void rpc_handler_set_wifi_network(void *ctx, void *params, void **result) {
 
 void rpc_handler_delete_wifi_network(void *ctx, void *params, void **result) {
     rpc_result_error_t *result_obj = calloc(1, sizeof(rpc_result_error_t));
-    if ((con_id_t)ctx == CON_STA) {
+    con_mode_t mode = CON_STA;
+    con_get_mode((con_id_t)ctx, &mode);
+    if (mode == CON_STA) {
         result_obj->error = RPC_ERROR_NOT_ALLOWED_IN_STA_MODE;
     } else {
         rpc_params_delete_wifi_network_t *del = params;

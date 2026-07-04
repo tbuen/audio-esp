@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "cJSON.h"
 #include "connection.h"
 #include "rpc_types.h"
 #include "rpc_json.h"
@@ -34,7 +35,7 @@ uint8_t rpc_json_result_error(void *result, cJSON **json) {
     rpc_result_error_t *result_obj = result;
     uint8_t error = result_obj->error;
     if (error == RPC_ERROR_NO_ERROR) {
-        *json = cJSON_CreateNull();
+        *json = cJSON_CreateObject();
     }
     free(result);
     return error;
