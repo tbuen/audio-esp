@@ -4,6 +4,8 @@
 
 #include "connection.h"
 #include "filesystem.h"
+#include "freertos/idf_additions.h"
+#include "multi_heap.h"
 
 /********************
 ***** CONSTANTS *****
@@ -30,7 +32,7 @@ typedef struct {
 
 typedef struct {
     con_mode_t mode;
-} rpc_result_get_info_con_t;
+} rpc_result_get_info_connection_t;
 
 typedef struct {
     char project[32];
@@ -39,6 +41,12 @@ typedef struct {
     char date[16];
     char time[16];
 } rpc_result_get_info_about_t;
+
+typedef struct {
+    uint32_t num_tasks;
+    TaskStatus_t *task_status;
+    multi_heap_info_t heap;
+} rpc_result_get_info_memory_t;
 
 typedef fs_web_info_t rpc_result_get_info_spiflash_t;
 

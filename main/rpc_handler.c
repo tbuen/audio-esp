@@ -1,9 +1,13 @@
 #include <cJSON.h>
 #include <esp_app_desc.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "connection.h"
+#include "esp_heap_caps.h"
 #include "filesystem.h"
+#include "freertos/idf_additions.h"
+#include "multi_heap.h"
 #include "wlan.h"
 #include "rpc_types.h"
 #include "rpc_handler.h"
@@ -32,8 +36,8 @@
 ***** PUBLIC FUNCTIONS *****
 ***************************/
 
-void rpc_handler_get_info_con(void *ctx, void *params, void **result) {
-    rpc_result_get_info_con_t *info = calloc(1, sizeof(rpc_result_get_info_con_t));
+void rpc_handler_get_info_connection(void *ctx, void *params, void **result) {
+    rpc_result_get_info_connection_t *info = calloc(1, sizeof(rpc_result_get_info_connection_t));
     con_get_mode((con_id_t)ctx, &info->mode);
     *result = info;
 }
@@ -49,10 +53,22 @@ void rpc_handler_get_info_about(void *ctx, void *params, void **result) {
     *result = info;
 }
 
+void rpc_handler_get_info_memory(void *ctx, void *params, void **result) {
+    rpc_result_get_info_memory_t *info = calloc(1, sizeof(rpc_result_get_info_memory_t));
+    info->num_tasks = uxTaskGetNumberOfTasks();
+    info->task_status = calloc(info->num_tasks, sizeof(TaskStatus_t));
+    info->num_tasks = uxTaskGetSystemState(info->task_status, info->num_tasks, NULL);
+    heap_caps_get_info(&info->heap, MALLOC_CAP_DEFAULT);
+    *result = info;
+}
+
 void rpc_handler_get_info_spiflash(void *ctx, void *params, void **result) {
     rpc_result_get_info_spiflash_t *info = calloc(1, sizeof(rpc_result_get_info_spiflash_t));
     fs_web_info(info);
     *result = info;
+}
+
+void rpc_handler_get_info_sdcard(void *ctx, void *params, void **result) {
 }
 
 void rpc_handler_get_wifi_scan_result(void *ctx, void *params, void **result) {

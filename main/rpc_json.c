@@ -41,8 +41,8 @@ uint8_t rpc_json_result_error(void *result, cJSON **json) {
     return error;
 }
 
-uint8_t rpc_json_result_get_info_con(void *result, cJSON **json) {
-    rpc_result_get_info_con_t *info = result;
+uint8_t rpc_json_result_get_info_connection(void *result, cJSON **json) {
+    rpc_result_get_info_connection_t *info = result;
     *json = cJSON_CreateObject();
     cJSON_AddStringToObject(*json, "mode", info->mode == CON_STA ? "STA" : "AP");
     free(result);
@@ -57,6 +57,29 @@ uint8_t rpc_json_result_get_info_about(void *result, cJSON **json) {
     cJSON_AddStringToObject(*json, "esp-idf", info->idf_ver);
     cJSON_AddStringToObject(*json, "date", info->date);
     cJSON_AddStringToObject(*json, "time", info->time);
+    free(result);
+    return RPC_ERROR_NO_ERROR;
+}
+
+uint8_t rpc_json_result_get_info_memory(void *result, cJSON **json) {
+    rpc_result_get_info_memory_t *info = result;
+    *json = cJSON_CreateObject();
+    cJSON *tasks = cJSON_CreateArray();
+    for (uint32_t i = 0; i < info->num_tasks; ++i) {
+        cJSON *task = cJSON_CreateObject();
+        cJSON_AddStringToObject(task, "name", info->task_status[i].pcTaskName);
+        cJSON_AddNumberToObject(task, "name", info->task_status[i].usStackHighWaterMark);
+        cJSON_AddItemToArray(tasks, task);
+    }
+    if (info->task_status) {
+        free(info->task_status);
+    }
+    cJSON_AddItemToObject(*json, "tasks", tasks);
+    cJSON *heap = cJSON_CreateObject();
+    cJSON_AddNumberToObject(heap, "allocated", info->heap.total_allocated_bytes);
+    cJSON_AddNumberToObject(heap, "free", info->heap.total_free_bytes);
+    cJSON_AddNumberToObject(heap, "minimum-free", info->heap.minimum_free_bytes);
+    cJSON_AddItemToObject(*json, "heap", heap);
     free(result);
     return RPC_ERROR_NO_ERROR;
 }
@@ -82,6 +105,10 @@ uint8_t rpc_json_result_get_info_spiflash(void *result, cJSON **json) {
     cJSON_AddItemToObject(*json, "files", files);
     free(result);
     return RPC_ERROR_NO_ERROR;
+}
+
+uint8_t rpc_json_result_get_info_sdcard(void *result, cJSON **json) {
+    return RPC_ERROR_NOT_FOUND;
 }
 
 uint8_t rpc_json_result_get_wifi_scan_result(void *result, cJSON **json) {
