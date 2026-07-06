@@ -34,6 +34,7 @@ static const json_rpc_config_t rpc_config[] = {
     { "get-wifi-network-list", &rpc_handler_get_wifi_network_list, NULL                                , &rpc_json_result_get_wifi_network_list },
     { "set-wifi-network"     , &rpc_handler_set_wifi_network     , &rpc_json_params_set_wifi_network   , &rpc_json_result_error                 },
     { "delete-wifi-network"  , &rpc_handler_delete_wifi_network  , &rpc_json_params_delete_wifi_network, &rpc_json_result_error                 },
+    { "get-file-list"        , &rpc_handler_get_file_list        , &rpc_json_params_get_file_list      , &rpc_json_result_get_file_list         },
     { NULL                   , NULL                              , NULL                                , NULL                                   }
 };
 

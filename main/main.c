@@ -3,15 +3,16 @@
 #include <nvs_flash.h>
 #include <stdlib.h>
 
-#include "message.h"
-#include "filesystem.h"
-#include "led.h"
 #include "button.h"
+#include "card.h"
 #include "connection.h"
-//#include "audio.h"
+#include "filesystem.h"
 #include "http_server.h"
-#include "wlan.h"
+#include "led.h"
+#include "message.h"
 #include "rpc.h"
+#include "vs1053.h"
+#include "wlan.h"
 
 /***************************
 ***** CONSTANTS ************
@@ -60,7 +61,8 @@ void app_main(void) {
     fs_init();
     led_init();
     button_init();
-    //audio_init(queue);
+    vs_init();
+    vs_card_init(CARD_MOUNT_POINT);
     rpc_init();
     con_init();
     http_init();

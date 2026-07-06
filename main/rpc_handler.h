@@ -25,3 +25,4 @@ void rpc_handler_get_wifi_scan_result(void *ctx, void *params, void **result);
 void rpc_handler_get_wifi_network_list(void *ctx, void *params, void **result);
 void rpc_handler_set_wifi_network(void *ctx, void *params, void **result);
 void rpc_handler_delete_wifi_network(void *ctx, void *params, void **result);
+void rpc_handler_get_file_list(void *ctx, void *params, void **result);

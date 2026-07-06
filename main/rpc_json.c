@@ -137,6 +137,38 @@ uint8_t rpc_json_result_get_wifi_network_list(void *result, cJSON **json) {
     return error;
 }
 
+uint8_t rpc_json_result_get_file_list(void *result, cJSON **json) {
+    rpc_result_get_file_list_t *file_list = result;
+    uint8_t error = file_list->error;
+    if (error == RPC_ERROR_NO_ERROR) {
+        *json = cJSON_CreateObject();
+        cJSON_AddStringToObject(*json, "path", file_list->path);
+        if (file_list->entries.dirs) {
+            cJSON *dirs = cJSON_CreateArray();
+            entry_t *dptr = file_list->entries.dirs;
+            while (dptr) {
+                cJSON *dir = cJSON_CreateString(dptr->name);
+                cJSON_AddItemToArray(dirs, dir);
+                dptr = dptr->next;
+            }
+            cJSON_AddItemToObject(*json, "dirs", dirs);
+        }
+        if (file_list->entries.files) {
+            cJSON *files = cJSON_CreateArray();
+            entry_t *fptr = file_list->entries.files;
+            while (fptr) {
+                cJSON *file = cJSON_CreateString(fptr->name);
+                cJSON_AddItemToArray(files, file);
+                fptr = fptr->next;
+            }
+            cJSON_AddItemToObject(*json, "files", files);
+        }
+        free(file_list->path);
+    }
+    free(result);
+    return error;
+}
+
 void *rpc_json_params_set_wifi_network(cJSON *params) {
     rpc_params_set_wifi_network_t *obj = NULL;
     if (cJSON_IsObject(params)) {
@@ -166,6 +198,21 @@ void *rpc_json_params_delete_wifi_network(cJSON *params) {
             obj = calloc(1, sizeof(rpc_params_delete_wifi_network_t));
             memcpy(obj->ssid, ssid->valuestring, strlen(ssid->valuestring));
         }
+    }
+    return obj;
+}
+
+void *rpc_json_params_get_file_list(cJSON *params) {
+    rpc_params_get_file_list_t *obj = NULL;
+    if (cJSON_IsObject(params)) {
+        cJSON *path = cJSON_GetObjectItemCaseSensitive(params, "path");
+        if (   cJSON_IsString(path)
+            && (strlen(path->valuestring) > 0)) {
+            obj = calloc(1, sizeof(rpc_params_get_file_list_t));
+            obj->path = strdup(path->valuestring);
+        }
+    } else if (!params) {
+        obj = calloc(1, sizeof(rpc_params_get_file_list_t));
     }
     return obj;
 }

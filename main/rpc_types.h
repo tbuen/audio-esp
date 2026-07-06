@@ -1,11 +1,12 @@
 #pragma once
 
+#include <freertos/idf_additions.h>
+#include <multi_heap.h>
 #include <stdint.h>
 
+#include "card.h"
 #include "connection.h"
 #include "filesystem.h"
-#include "freertos/idf_additions.h"
-#include "multi_heap.h"
 
 /********************
 ***** CONSTANTS *****
@@ -65,6 +66,12 @@ typedef struct {
 } rpc_result_get_wifi_network_list_t;
 
 typedef struct {
+    uint8_t error;
+    char *path;
+    dir_entries_t entries;
+} rpc_result_get_file_list_t;
+
+typedef struct {
     char ssid[33];
     char key[65];
 } rpc_params_set_wifi_network_t;
@@ -72,6 +79,10 @@ typedef struct {
 typedef struct {
     char ssid[33];
 } rpc_params_delete_wifi_network_t;
+
+typedef struct {
+    char *path;
+} rpc_params_get_file_list_t;
 
 /********************
 ***** FUNCTIONS *****

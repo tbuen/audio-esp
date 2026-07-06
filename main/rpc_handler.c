@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "card.h"
 #include "connection.h"
 #include "esp_heap_caps.h"
 #include "filesystem.h"
@@ -187,6 +188,22 @@ void rpc_handler_delete_wifi_network(void *ctx, void *params, void **result) {
             fs_free_wifi_cfg(false);
             result_obj->error = RPC_ERROR_NOT_FOUND;
         }
+    }
+    free(params);
+    *result = result_obj;
+}
+
+void rpc_handler_get_file_list(void *ctx, void *params, void **result) {
+    rpc_result_get_file_list_t *result_obj = calloc(1, sizeof(rpc_result_get_file_list_t));
+    rpc_params_get_file_list_t *p = params;
+    char *path = CARD_MOUNT_POINT;
+    if (p->path) {
+        path = p->path;
+    }
+    if (card_get_directory_entries(path, &result_obj->entries)) {
+        result_obj->path = strdup(path);
+    } else {
+        result_obj->error = RPC_ERROR_NOT_FOUND;
     }
     free(params);
     *result = result_obj;
