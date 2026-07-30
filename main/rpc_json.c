@@ -149,7 +149,10 @@ uint8_t rpc_json_result_get_file_list(void *result, cJSON **json) {
             while (dptr) {
                 cJSON *dir = cJSON_CreateString(dptr->name);
                 cJSON_AddItemToArray(dirs, dir);
-                dptr = dptr->next;
+                entry_t *nextptr = dptr->next;
+                free(dptr->name);
+                free(dptr);
+                dptr = nextptr;
             }
             cJSON_AddItemToObject(*json, "dirs", dirs);
         }
@@ -159,7 +162,10 @@ uint8_t rpc_json_result_get_file_list(void *result, cJSON **json) {
             while (fptr) {
                 cJSON *file = cJSON_CreateString(fptr->name);
                 cJSON_AddItemToArray(files, file);
-                fptr = fptr->next;
+                entry_t *nextptr = fptr->next;
+                free(fptr->name);
+                free(fptr);
+                fptr = nextptr;
             }
             cJSON_AddItemToObject(*json, "files", files);
         }

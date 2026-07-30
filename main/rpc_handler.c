@@ -205,6 +205,9 @@ void rpc_handler_get_file_list(void *ctx, void *params, void **result) {
     } else {
         result_obj->error = RPC_ERROR_NOT_FOUND;
     }
+    if (p->path) {
+        free(p->path);
+    }
     free(params);
     *result = result_obj;
 }
