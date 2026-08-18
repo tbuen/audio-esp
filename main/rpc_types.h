@@ -17,7 +17,11 @@
 #define RPC_ERROR_NO_ERROR                  0
 #define RPC_ERROR_NOT_ALLOWED_IN_STA_MODE   1
 #define RPC_ERROR_NO_SPACE_LEFT             2
-#define RPC_ERROR_NOT_FOUND                 3
+#define RPC_ERROR_NETWORK_NOT_FOUND         3
+#define RPC_ERROR_DIRECTORY_NOT_FOUND       4
+#define RPC_ERROR_FILE_NOT_FOUND            5
+#define RPC_ERROR_NO_TRACK                  6
+#define RPC_ERROR_IO_ERROR                  7
 
 /********************
 ***** MACROS ********
@@ -72,6 +76,12 @@ typedef struct {
 } rpc_result_get_file_list_t;
 
 typedef struct {
+    uint8_t error;
+    char *filename;
+    track_info_t info;
+} rpc_result_get_track_info_t;
+
+typedef struct {
     char ssid[33];
     char key[65];
 } rpc_params_set_wifi_network_t;
@@ -83,6 +93,10 @@ typedef struct {
 typedef struct {
     char *path;
 } rpc_params_get_file_list_t;
+
+typedef struct {
+    char *filename;
+} rpc_params_get_track_info_t;
 
 /********************
 ***** FUNCTIONS *****

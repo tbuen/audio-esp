@@ -186,7 +186,7 @@ void rpc_handler_delete_wifi_network(void *ctx, void *params, void **result) {
             result_obj->error = RPC_ERROR_NO_ERROR;
         } else {
             fs_free_wifi_cfg(false);
-            result_obj->error = RPC_ERROR_NOT_FOUND;
+            result_obj->error = RPC_ERROR_NETWORK_NOT_FOUND;
         }
     }
     free(params);
@@ -203,10 +203,24 @@ void rpc_handler_get_file_list(void *ctx, void *params, void **result) {
     if (card_get_directory_entries(path, &result_obj->entries)) {
         result_obj->path = strdup(path);
     } else {
-        result_obj->error = RPC_ERROR_NOT_FOUND;
+        result_obj->error = RPC_ERROR_DIRECTORY_NOT_FOUND;
     }
     if (p->path) {
         free(p->path);
+    }
+    free(params);
+    *result = result_obj;
+}
+
+void rpc_handler_get_track_info(void *ctx, void *params, void **result) {
+    rpc_result_get_track_info_t *result_obj = calloc(1, sizeof(rpc_result_get_track_info_t));
+    rpc_params_get_track_info_t *p = params;
+    uint8_t err = card_get_track_info(p->filename, &result_obj->info);
+    if (err == RPC_ERROR_NO_ERROR) {
+        result_obj->filename = p->filename;
+    } else {
+        result_obj->error = err;
+        free(p->filename);
     }
     free(params);
     *result = result_obj;

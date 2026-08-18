@@ -108,7 +108,7 @@ uint8_t rpc_json_result_get_info_spiflash(void *result, cJSON **json) {
 }
 
 uint8_t rpc_json_result_get_info_sdcard(void *result, cJSON **json) {
-    return RPC_ERROR_NOT_FOUND;
+    return RPC_ERROR_DIRECTORY_NOT_FOUND;
 }
 
 uint8_t rpc_json_result_get_wifi_scan_result(void *result, cJSON **json) {
@@ -143,6 +143,10 @@ uint8_t rpc_json_result_get_file_list(void *result, cJSON **json) {
     if (error == RPC_ERROR_NO_ERROR) {
         *json = cJSON_CreateObject();
         cJSON_AddStringToObject(*json, "path", file_list->path);
+        if (file_list->entries.cover) {
+            cJSON_AddStringToObject(*json, "cover", file_list->entries.cover);
+            free(file_list->entries.cover);
+        }
         if (file_list->entries.dirs) {
             cJSON *dirs = cJSON_CreateArray();
             entry_t *dptr = file_list->entries.dirs;
@@ -156,20 +160,59 @@ uint8_t rpc_json_result_get_file_list(void *result, cJSON **json) {
             }
             cJSON_AddItemToObject(*json, "dirs", dirs);
         }
-        if (file_list->entries.files) {
-            cJSON *files = cJSON_CreateArray();
-            entry_t *fptr = file_list->entries.files;
-            while (fptr) {
-                cJSON *file = cJSON_CreateString(fptr->name);
-                cJSON_AddItemToArray(files, file);
-                entry_t *nextptr = fptr->next;
-                free(fptr->name);
-                free(fptr);
-                fptr = nextptr;
+        if (file_list->entries.tracks) {
+            cJSON *tracks = cJSON_CreateArray();
+            entry_t *tptr = file_list->entries.tracks;
+            while (tptr) {
+                cJSON *track = cJSON_CreateString(tptr->name);
+                cJSON_AddItemToArray(tracks, track);
+                entry_t *nextptr = tptr->next;
+                free(tptr->name);
+                free(tptr);
+                tptr = nextptr;
             }
-            cJSON_AddItemToObject(*json, "files", files);
+            cJSON_AddItemToObject(*json, "tracks", tracks);
         }
         free(file_list->path);
+    }
+    free(result);
+    return error;
+}
+
+uint8_t rpc_json_result_get_track_info(void *result, cJSON **json) {
+    rpc_result_get_track_info_t *info = result;
+    uint8_t error = info->error;
+    if (error == RPC_ERROR_NO_ERROR) {
+        *json = cJSON_CreateObject();
+        if (info->filename) {
+            cJSON_AddStringToObject(*json, "file", info->filename);
+            free(info->filename);
+        }
+        if (info->info.genre) {
+            cJSON_AddStringToObject(*json, "genre", info->info.genre);
+            free(info->info.genre);
+        }
+        if (info->info.artist) {
+            cJSON_AddStringToObject(*json, "artist", info->info.artist);
+            free(info->info.artist);
+        }
+        if (info->info.album) {
+            cJSON_AddStringToObject(*json, "album", info->info.album);
+            free(info->info.album);
+        }
+        if (info->info.title) {
+            cJSON_AddStringToObject(*json, "title", info->info.title);
+            free(info->info.title);
+        }
+        if (info->info.date) {
+            cJSON_AddNumberToObject(*json, "date", info->info.date);
+        }
+        if (info->info.track) {
+            cJSON_AddNumberToObject(*json, "track", info->info.track);
+        }
+        if (info->info.duration) {
+            cJSON_AddNumberToObject(*json, "duration", info->info.duration);
+        }
     }
     free(result);
     return error;
@@ -219,6 +262,19 @@ void *rpc_json_params_get_file_list(cJSON *params) {
         }
     } else if (!params) {
         obj = calloc(1, sizeof(rpc_params_get_file_list_t));
+    }
+    return obj;
+}
+
+void *rpc_json_params_get_track_info(cJSON *params) {
+    rpc_params_get_track_info_t *obj = NULL;
+    if (cJSON_IsObject(params)) {
+        cJSON *file = cJSON_GetObjectItemCaseSensitive(params, "file");
+        if (   cJSON_IsString(file)
+            && (strlen(file->valuestring) > 0)) {
+            obj = calloc(1, sizeof(rpc_params_get_track_info_t));
+            obj->filename = strdup(file->valuestring);
+        }
     }
     return obj;
 }
