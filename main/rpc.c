@@ -36,6 +36,7 @@ static const json_rpc_config_t rpc_config[] = {
     { "delete-wifi-network"  , &rpc_handler_delete_wifi_network  , &rpc_json_params_delete_wifi_network, &rpc_json_result_error                 },
     { "get-file-list"        , &rpc_handler_get_file_list        , &rpc_json_params_get_file_list      , &rpc_json_result_get_file_list         },
     { "get-track-info"       , &rpc_handler_get_track_info       , &rpc_json_params_get_track_info     , &rpc_json_result_get_track_info        },
+    { "set-volume"           , &rpc_handler_set_volume           , &rpc_json_params_set_volume         , &rpc_json_result_error                 },
     { NULL                   , NULL                              , NULL                                , NULL                                   }
 };
 
@@ -65,75 +66,3 @@ char *rpc_handle_request(con_id_t con, const char *request) {
 /***************************
 ***** LOCAL FUNCTIONS ******
 ***************************/
-
-/*char *json_get_volume(void) {
-    volume_t vol;
-    audio_volume(&vol, false);
-    char *string;
-
-    cJSON *resp = cJSON_CreateObject();
-
-    cJSON_AddNumberToObject(resp, "left", vol.left);
-    cJSON_AddNumberToObject(resp, "right", vol.right);
-
-    string = cJSON_PrintUnformatted(resp);
-    cJSON_Delete(resp);
-
-    return string;
-}
-
-bool json_post_volume(const char *content, char **response) {
-    bool valid = false;
-
-    cJSON *req = cJSON_Parse(content);
-
-    if (req) {
-        cJSON *left = cJSON_GetObjectItemCaseSensitive(req, "left");
-        cJSON *right = cJSON_GetObjectItemCaseSensitive(req, "right");
-        if (cJSON_IsNumber(left) && cJSON_IsNumber(right)) {
-            valid = true;
-
-            volume_t vol = {
-                .left = left->valueint,
-                .right = right->valueint,
-            };
-            audio_volume(&vol, true);
-
-            cJSON *resp = cJSON_CreateObject();
-
-            cJSON_AddNumberToObject(resp, "left", vol.left);
-            cJSON_AddNumberToObject(resp, "right", vol.right);
-
-            *response = cJSON_PrintUnformatted(resp);
-            cJSON_Delete(resp);
-        }
-        cJSON_Delete(req);
-    }
-
-    return valid;
-}
-
-bool json_post_play(const char *content, char **response) {
-    bool valid = false;
-
-    cJSON *req = cJSON_Parse(content);
-
-    if (req) {
-        cJSON *filename = cJSON_GetObjectItemCaseSensitive(req, "filename");
-        if (cJSON_IsString(filename) && filename->valuestring) {
-            valid = true;
-
-            bool status = audio_play(filename->valuestring);
-
-            cJSON *resp = cJSON_CreateObject();
-
-            cJSON_AddBoolToObject(resp, "status", status);
-
-            *response = cJSON_PrintUnformatted(resp);
-            cJSON_Delete(resp);
-        }
-        cJSON_Delete(req);
-    }
-
-    return valid;
-}*/

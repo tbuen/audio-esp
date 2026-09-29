@@ -1,25 +1,35 @@
 #pragma once
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
+#include <stdint.h>
 
 #include "message.h"
 
-#define AUDIO_NO_ERROR                0
-#define AUDIO_IO_ERROR             -100
-#define AUDIO_START_ERROR          -101
-#define AUDIO_BUSY_ERROR           -102
-#define AUDIO_FILE_NOT_FOUND_ERROR -103
-#define AUDIO_FILE_TYPE_ERROR      -104
+/********************
+***** CONSTANTS *****
+********************/
 
-typedef struct {
-    int left;
-    int right;
-} volume_t;
+/********************
+***** MACROS ********
+********************/
 
-void audio_init(QueueHandle_t q);
-void audio_request(const msg_audio_request_t *request);
+/********************
+***** TYPES *********
+********************/
 
-void audio_volume(volume_t *vol, bool set);
+//#define AUDIO_NO_ERROR                0
+//#define AUDIO_IO_ERROR             -100
+//#define AUDIO_START_ERROR          -101
+//#define AUDIO_BUSY_ERROR           -102
+//#define AUDIO_FILE_NOT_FOUND_ERROR -103
+//#define AUDIO_FILE_TYPE_ERROR      -104
 
-bool audio_play(const char *filename);
+/********************
+***** FUNCTIONS *****
+********************/
+
+void        audio_init(void);
+void        audio_set_volume(uint8_t left, uint8_t right);
+
+//msg_type_t  audio_msg_type(void);
+//void audio_request(const msg_audio_request_t *request);
+//bool audio_play(const char *filename);

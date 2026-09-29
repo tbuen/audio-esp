@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "audio.h"
 #include "card.h"
 #include "connection.h"
 #include "esp_heap_caps.h"
@@ -222,6 +223,14 @@ void rpc_handler_get_track_info(void *ctx, void *params, void **result) {
         result_obj->error = err;
         free(p->filename);
     }
+    free(params);
+    *result = result_obj;
+}
+
+void rpc_handler_set_volume(void *ctx, void *params, void **result) {
+    rpc_result_error_t *result_obj = calloc(1, sizeof(rpc_result_error_t));
+    rpc_params_set_volume_t *vol = params;
+    audio_set_volume(vol->left, vol->right);
     free(params);
     *result = result_obj;
 }

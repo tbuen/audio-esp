@@ -3,6 +3,7 @@
 #include <nvs_flash.h>
 #include <stdlib.h>
 
+#include "audio.h"
 #include "button.h"
 #include "card.h"
 #include "connection.h"
@@ -63,6 +64,7 @@ void app_main(void) {
     button_init();
     vs_init();
     vs_card_init(CARD_MOUNT_POINT);
+    audio_init();
     rpc_init();
     con_init();
     http_init();

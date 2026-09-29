@@ -1,3 +1,100 @@
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
+#include "audio.h"
+#include "vs1053.h"
+
+/***************************
+***** CONSTANTS ************
+***************************/
+
+#define TASK_CORE                 1
+#define TASK_PRIO                19
+#define STACK_SIZE             4096
+
+#define AUDIO_INT_SET_VOLUME      1
+
+/***************************
+***** MACROS ***************
+***************************/
+
+#define TAG "audio"
+
+#define LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
+#define LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+#define LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
+#define LOGD(...) ESP_LOGD(TAG, __VA_ARGS__)
+
+/***************************
+***** TYPES ****************
+***************************/
+
+/***************************
+***** LOCAL FUNCTIONS ******
+***************************/
+
+static void audio_task(void *param);
+
+/***************************
+***** LOCAL VARIABLES ******
+***************************/
+
+static TaskHandle_t handle;
+static msg_type_t   msg_type;
+static msg_type_t   msg_type_int;
+static msg_handle_t msg_handle;
+
+/***************************
+***** PUBLIC FUNCTIONS *****
+***************************/
+
+void audio_init(void) {
+    assert(!handle);
+    assert(!msg_type);
+    assert(!msg_type_int);
+
+    msg_type = msg_register();
+    msg_type_int = msg_register();
+
+    msg_handle = msg_listen(msg_type_int);
+
+    if (xTaskCreatePinnedToCore(&audio_task, "audio-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
+        LOGE("could not create task");
+    }
+}
+
+/*msg_type_t audio_msg_type(void) {
+    assert(msg_type);
+    return msg_type;
+}*/
+
+void audio_set_volume(uint8_t left, uint8_t right) {
+    assert(msg_type_int);
+    msg_send_value(msg_type_int, AUDIO_INT_SET_VOLUME);
+}
+
+/***************************
+***** LOCAL FUNCTIONS ******
+***************************/
+
+static void audio_task(void *param) {
+    for (;;) {
+        msg_t msg = msg_receive(msg_handle);
+        if (msg.type == msg_type_int) {
+            //ESP_ERROR_CHECK(esp_wifi_get_mode(&mode));
+            switch (msg.value) {
+                case AUDIO_INT_SET_VOLUME:
+                    vs_set_volume(0x1414);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+}
+
+#if 0
 #include "errno.h"
 #include "esp_log.h"
 #include "fcntl.h"
@@ -43,23 +140,11 @@ static context_t context[MAX_CONTEXT];
 
 static char *file2play;
 
-static void audio_task(void *param);
 static context_t *get_context(con_t con, bool start);
 static void free_context(context_t *ctx);
 static esp_err_t read_dir(con_t con, bool start, int16_t *error, audio_file_list_t *list);
 static esp_err_t read_info(const char *filename, int16_t *error, audio_file_info_t *info);
 
-void audio_init(QueueHandle_t q) {
-    if (handle) return;
-
-    queue = q;
-
-    request_queue = xQueueCreate(10, sizeof(msg_audio_request_t));
-
-    if (xTaskCreatePinnedToCore(&audio_task, "audio-task", STACK_SIZE, NULL, TASK_PRIO, &handle, TASK_CORE) != pdPASS) {
-        ESP_LOGE(TAG, "could not create task");
-    }
-}
 
 void audio_request(const msg_audio_request_t *request) {
     xQueueSendToBack(request_queue, request, 0);
@@ -395,3 +480,4 @@ static esp_err_t read_info(const char *filename, int16_t *error, audio_file_info
     free(file);
     return err;
 }
+#endif

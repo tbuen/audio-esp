@@ -98,6 +98,11 @@ typedef struct {
     char *filename;
 } rpc_params_get_track_info_t;
 
+typedef struct {
+    uint8_t left;
+    uint8_t right;
+} rpc_params_set_volume_t;
+
 /********************
 ***** FUNCTIONS *****
 ********************/
