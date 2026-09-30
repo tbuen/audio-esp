@@ -285,11 +285,7 @@ void *rpc_json_params_set_volume(cJSON *params) {
         cJSON *left = cJSON_GetObjectItemCaseSensitive(params, "left");
         cJSON *right = cJSON_GetObjectItemCaseSensitive(params, "right");
         if (   cJSON_IsNumber(left)
-            && cJSON_IsNumber(right)
-            && left->valueint >= -127
-            && left->valueint <= 0
-            && right->valueint >= -127
-            && right->valueint <= 0) {
+            && cJSON_IsNumber(right)) {
             obj = calloc(1, sizeof(rpc_params_set_volume_t));
             obj->left = left->valueint;
             obj->right = right->valueint;

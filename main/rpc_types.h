@@ -22,6 +22,7 @@
 #define RPC_ERROR_FILE_NOT_FOUND            5
 #define RPC_ERROR_NO_TRACK                  6
 #define RPC_ERROR_IO_ERROR                  7
+#define RPC_ERROR_VOLUME_OUT_OF_RANGE       8
 
 /********************
 ***** MACROS ********
@@ -99,8 +100,8 @@ typedef struct {
 } rpc_params_get_track_info_t;
 
 typedef struct {
-    uint8_t left;
-    uint8_t right;
+    int left;
+    int right;
 } rpc_params_set_volume_t;
 
 /********************

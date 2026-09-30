@@ -41,14 +41,15 @@ static const json_rpc_config_t rpc_config[] = {
 };
 
 static const json_rpc_error_config_t rpc_err_config[] = {
-    { RPC_ERROR_NOT_ALLOWED_IN_STA_MODE, "not allowed in STA mode" },
-    { RPC_ERROR_NO_SPACE_LEFT          , "no space left"           },
-    { RPC_ERROR_NETWORK_NOT_FOUND      , "network not found"       },
-    { RPC_ERROR_DIRECTORY_NOT_FOUND    , "directory not found"     },
-    { RPC_ERROR_FILE_NOT_FOUND         , "file not found"          },
-    { RPC_ERROR_NO_TRACK               , "file is not a track"     },
-    { RPC_ERROR_IO_ERROR               , "I/O error"               },
-    { RPC_ERROR_NO_ERROR               , NULL                      }
+    { RPC_ERROR_NOT_ALLOWED_IN_STA_MODE, "not allowed in STA mode"       },
+    { RPC_ERROR_NO_SPACE_LEFT          , "no space left"                 },
+    { RPC_ERROR_NETWORK_NOT_FOUND      , "network not found"             },
+    { RPC_ERROR_DIRECTORY_NOT_FOUND    , "directory not found"           },
+    { RPC_ERROR_FILE_NOT_FOUND         , "file not found"                },
+    { RPC_ERROR_NO_TRACK               , "file is not a track"           },
+    { RPC_ERROR_IO_ERROR               , "I/O error"                     },
+    { RPC_ERROR_VOLUME_OUT_OF_RANGE    , "volume out of range [-127..0]" },
+    { RPC_ERROR_NO_ERROR               , NULL                            }
 };
 
 /***************************

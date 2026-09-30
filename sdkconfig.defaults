@@ -1,0 +1,90 @@
+# This file was generated using idf.py save-defconfig or menuconfig [D] key. It can be edited manually.
+# Espressif IoT Development Framework (ESP-IDF) 6.0.2 Project Minimal Configuration
+#
+
+#
+# Serial flasher config
+#
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# end of Serial flasher config
+
+#
+# Partition Table
+#
+CONFIG_PARTITION_TABLE_CUSTOM=y
+# end of Partition Table
+
+#
+# Component config
+#
+
+#
+# Ethernet
+#
+CONFIG_ETH_USE_ESP32_EMAC=n
+CONFIG_ETH_USE_SPI_ETHERNET=n
+# end of Ethernet
+
+#
+# HTTP Server
+#
+CONFIG_HTTPD_WS_SUPPORT=y
+CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT=y
+# end of HTTP Server
+
+#
+# Hardware Settings
+#
+
+#
+# Chip revision
+#
+CONFIG_ESP32_REV_MIN_3=y
+# end of Chip revision
+# end of Hardware Settings
+
+#
+# Wi-Fi
+#
+CONFIG_ESP_WIFI_NVS_ENABLED=n
+CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT=n
+# end of Wi-Fi
+
+#
+# FAT Filesystem support
+#
+CONFIG_FATFS_API_ENCODING_UTF_8=y
+# end of FAT Filesystem support
+
+#
+# FreeRTOS
+#
+
+#
+# Kernel
+#
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+# end of Kernel
+# end of FreeRTOS
+
+#
+# LWIP
+#
+CONFIG_LWIP_IPV6=n
+# end of LWIP
+
+#
+# SD Protocol Layer Configuration
+#
+CONFIG_SD_ENABLE_SDIO_SUPPORT=n
+# end of SD Protocol Layer Configuration
+
+#
+# WLAN
+#
+CONFIG_WLAN_HOSTNAME="esp32-audio"
+CONFIG_WLAN_SSID="esp32-audio"
+CONFIG_MDNS_INSTANCE_NAME="ESP32 audio player"
+CONFIG_MDNS_SERVICE_TYPE="_audio-jsonrpc-websocket"
+# end of WLAN
+# end of Component config

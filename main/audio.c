@@ -69,9 +69,15 @@ void audio_init(void) {
     return msg_type;
 }*/
 
-void audio_set_volume(uint8_t left, uint8_t right) {
+bool audio_set_volume(int left, int right) {
     assert(msg_type_int);
-    msg_send_value(msg_type_int, AUDIO_INT_SET_VOLUME);
+    bool ret = false;
+    if (   (left >= -127) && (left <= 0)
+        && (right >= -127) && (right <= 0)) {
+        msg_send_value_with_data(msg_type_int, AUDIO_INT_SET_VOLUME, ((-2 * left) << 8) | (-2 * right));
+        ret = true;
+    }
+    return ret;
 }
 
 /***************************
@@ -82,10 +88,9 @@ static void audio_task(void *param) {
     for (;;) {
         msg_t msg = msg_receive(msg_handle);
         if (msg.type == msg_type_int) {
-            //ESP_ERROR_CHECK(esp_wifi_get_mode(&mode));
             switch (msg.value) {
                 case AUDIO_INT_SET_VOLUME:
-                    vs_set_volume(0x1414);
+                    vs_set_volume(msg.data);
                     break;
                 default:
                     break;

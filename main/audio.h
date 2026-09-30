@@ -28,7 +28,7 @@
 ********************/
 
 void        audio_init(void);
-void        audio_set_volume(uint8_t left, uint8_t right);
+bool        audio_set_volume(int left, int right);
 
 //msg_type_t  audio_msg_type(void);
 //void audio_request(const msg_audio_request_t *request);
