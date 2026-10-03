@@ -22,7 +22,6 @@
 #define RPC_ERROR_FILE_NOT_FOUND            5
 #define RPC_ERROR_NO_TRACK                  6
 #define RPC_ERROR_IO_ERROR                  7
-#define RPC_ERROR_VOLUME_OUT_OF_RANGE       8
 
 #define RPC_NOTIF_VOLUME    "volume"
 

@@ -43,7 +43,7 @@ typedef struct {
 
 void        audio_init(void);
 msg_type_t  audio_msg_type(void);
-bool        audio_set_volume(int left, int right);
+void        audio_set_volume(int left, int right);
 void        audio_get_volume(con_id_t con);
 
 //void audio_request(const msg_audio_request_t *request);

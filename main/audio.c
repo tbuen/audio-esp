@@ -70,15 +70,13 @@ msg_type_t audio_msg_type(void) {
     return msg_type;
 }
 
-bool audio_set_volume(int left, int right) {
+void audio_set_volume(int left, int right) {
     assert(msg_type_int);
-    bool ret = false;
-    if (   (left >= -127) && (left <= 0)
-        && (right >= -127) && (right <= 0)) {
-        msg_send_value_with_data(msg_type_int, AUDIO_INT_SET_VOLUME, ((-2 * left) << 8) | (-2 * right));
-        ret = true;
-    }
-    return ret;
+    if (left < -127) left = -127;
+    if (left > 0) left = 0;
+    if (right < -127) right = -127;
+    if (right > 0) right = 0;
+    msg_send_value_with_data(msg_type_int, AUDIO_INT_SET_VOLUME, ((-2 * left) << 8) | (-2 * right));
 }
 
 void audio_get_volume(con_id_t con) {

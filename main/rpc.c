@@ -57,7 +57,6 @@ static const json_rpc_error_config_t rpc_err_config[] = {
     { RPC_ERROR_FILE_NOT_FOUND         , "file not found"                },
     { RPC_ERROR_NO_TRACK               , "file is not a track"           },
     { RPC_ERROR_IO_ERROR               , "I/O error"                     },
-    { RPC_ERROR_VOLUME_OUT_OF_RANGE    , "volume out of range [-127..0]" },
     { RPC_ERROR_NO_ERROR               , NULL                            }
 };
 
