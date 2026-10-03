@@ -230,7 +230,9 @@ void rpc_handler_get_track_info(void *ctx, void *params, void **result) {
 void rpc_handler_set_volume(void *ctx, void *params, void **result) {
     rpc_result_error_t *result_obj = calloc(1, sizeof(rpc_result_error_t));
     rpc_params_set_volume_t *vol = params;
-    if (!audio_set_volume(vol->left, vol->right)) {
+    if (audio_set_volume(vol->left, vol->right)) {
+        audio_get_volume(CON_ALL_CLIENTS);
+    } else {
         result_obj->error = RPC_ERROR_VOLUME_OUT_OF_RANGE;
     }
     free(params);

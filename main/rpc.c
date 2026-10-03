@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "json_rpc.h"
 #include "rpc_types.h"
 #include "rpc_handler.h"
@@ -15,6 +17,13 @@
 /***************************
 ***** TYPES ****************
 ***************************/
+
+typedef void (*rpc_param_builder_t)(void *params, cJSON **json);
+
+typedef struct {
+    char               *method;
+    rpc_param_builder_t param_builder;
+} rpc_ntfn_config_t;
 
 /***************************
 ***** LOCAL FUNCTIONS ******
@@ -52,6 +61,11 @@ static const json_rpc_error_config_t rpc_err_config[] = {
     { RPC_ERROR_NO_ERROR               , NULL                            }
 };
 
+static const rpc_ntfn_config_t rpc_ntfn_config[] = {
+    { RPC_NOTIF_VOLUME, &rpc_json_notif_params_volume },
+    { NULL            , NULL                          }
+};
+
 /***************************
 ***** PUBLIC FUNCTIONS *****
 ***************************/
@@ -62,6 +76,27 @@ void rpc_init(void) {
 
 char *rpc_handle_request(con_id_t con, const char *request) {
     return json_rpc_handle_request((void*)con, request);
+}
+
+char *rpc_build_notification(const char *method, void *params) {
+    char *notif = NULL;
+
+    const rpc_ntfn_config_t *cfg = rpc_ntfn_config;
+    while (cfg->method) {
+        if (!strcmp(method, cfg->method)) {
+            break;
+        }
+        cfg++;
+    }
+    if (cfg->method) {
+        cJSON *ps = NULL;
+        if (cfg->param_builder) {
+            cfg->param_builder(params, &ps);
+        }
+        notif = json_rpc_build_notif(method, ps);
+    }
+
+    return notif;
 }
 
 /***************************

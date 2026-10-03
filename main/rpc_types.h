@@ -24,6 +24,8 @@
 #define RPC_ERROR_IO_ERROR                  7
 #define RPC_ERROR_VOLUME_OUT_OF_RANGE       8
 
+#define RPC_NOTIF_VOLUME    "volume"
+
 /********************
 ***** MACROS ********
 ********************/
@@ -103,6 +105,11 @@ typedef struct {
     int left;
     int right;
 } rpc_params_set_volume_t;
+
+typedef struct {
+    int left;
+    int right;
+} rpc_notif_params_volume_t;
 
 /********************
 ***** FUNCTIONS *****

@@ -20,3 +20,4 @@
 
 void rpc_init(void);
 char *rpc_handle_request(con_id_t con, const char *request);
+char *rpc_build_notification(const char *method, void *params);

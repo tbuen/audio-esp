@@ -14,6 +14,7 @@
 #define STACK_SIZE             4096
 
 #define AUDIO_INT_SET_VOLUME      1
+#define AUDIO_INT_GET_VOLUME      2
 
 /***************************
 ***** MACROS ***************
@@ -64,10 +65,10 @@ void audio_init(void) {
     }
 }
 
-/*msg_type_t audio_msg_type(void) {
+msg_type_t audio_msg_type(void) {
     assert(msg_type);
     return msg_type;
-}*/
+}
 
 bool audio_set_volume(int left, int right) {
     assert(msg_type_int);
@@ -78,6 +79,11 @@ bool audio_set_volume(int left, int right) {
         ret = true;
     }
     return ret;
+}
+
+void audio_get_volume(con_id_t con) {
+    assert(msg_type_int);
+    msg_send_value_with_data(msg_type_int, AUDIO_INT_GET_VOLUME, con);
 }
 
 /***************************
@@ -91,6 +97,15 @@ static void audio_task(void *param) {
             switch (msg.value) {
                 case AUDIO_INT_SET_VOLUME:
                     vs_set_volume(msg.data);
+                    break;
+                case AUDIO_INT_GET_VOLUME:
+                    uint16_t vol = vs_get_volume();
+                    audio_notif_t *audio_notif = calloc(1, sizeof(audio_notif_t));
+                    audio_notif->con = msg.data;
+                    audio_notif->type = AUDIO_VOLUME;
+                    audio_notif->volume.left = (vol >> 8) / -2;
+                    audio_notif->volume.right = (vol & 0xFF) / -2;
+                    msg_send_ptr(msg_type, audio_notif, NULL);
                     break;
                 default:
                     break;

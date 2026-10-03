@@ -12,6 +12,7 @@
 #include "led.h"
 #include "message.h"
 #include "rpc.h"
+#include "rpc_types.h"
 #include "vs1053.h"
 #include "wlan.h"
 
@@ -71,12 +72,13 @@ void app_main(void) {
     wlan_init();
 
     msg_type_int = msg_register();
+    msg_type_t msg_type_audio = audio_msg_type();
     msg_type_t msg_type_button = button_msg_type();
     msg_type_t msg_type_wlan = wlan_msg_type();
     msg_type_t msg_type_con = con_msg_type();
     msg_type_t msg_type_ws_recv = http_msg_type_ws_recv();
 
-    msg_handle_t msg_handle = msg_listen(msg_type_int | msg_type_button | msg_type_wlan | msg_type_con | msg_type_ws_recv);
+    msg_handle_t msg_handle = msg_listen(msg_type_int | msg_type_audio | msg_type_button | msg_type_wlan | msg_type_con | msg_type_ws_recv);
 
     TimerHandle_t timer = xTimerCreate("idle-check", pdMS_TO_TICKS(500), true, NULL, idle_check_timer_cb);
     xTimerStart(timer, 0);
@@ -130,6 +132,7 @@ void app_main(void) {
                     if (con_count()) {
                         led_set(LED_YELLOW, LED_HIGH);
                     }
+                    audio_get_volume(msg.data);
                     break;
                 case CON_DISCONNECTED:
                     if (!con_count()) {
@@ -144,8 +147,27 @@ void app_main(void) {
             LOGI("received [%lu]: %s", ws_msg->con, ws_msg->text);
             char *response = rpc_handle_request(ws_msg->con, ws_msg->text);
             if (response) {
+                LOGI("send [%lu]: %s", ws_msg->con, response);
                 http_send_ws_msg(ws_msg->con, response);
                 free(response);
+            }
+            msg_free(&msg);
+        } else if (msg.type == msg_type_audio) {
+            audio_notif_t *audio_notif = msg.ptr;
+            switch (audio_notif->type) {
+                case AUDIO_VOLUME:
+                    rpc_notif_params_volume_t *params = calloc(1, sizeof(rpc_notif_params_volume_t));
+                    params->left = audio_notif->volume.left;
+                    params->right = audio_notif->volume.right;
+                    char *notif = rpc_build_notification(RPC_NOTIF_VOLUME, params);
+                    if (notif) {
+                        LOGI("send notif [%lu]: %s", audio_notif->con, notif);
+                        http_send_ws_notif(audio_notif->con, notif);
+                        free(notif);
+                    }
+                    break;
+                default:
+                    break;
             }
             msg_free(&msg);
         } else {

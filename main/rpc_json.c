@@ -294,6 +294,14 @@ void *rpc_json_params_set_volume(cJSON *params) {
     return obj;
 }
 
+void rpc_json_notif_params_volume(void *params, cJSON **json) {
+    rpc_notif_params_volume_t *volume = params;
+    *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(*json, "left", volume->left);
+    cJSON_AddNumberToObject(*json, "right", volume->right);
+    free(params);
+}
+
 /***************************
 ***** LOCAL FUNCTIONS ******
 ***************************/

@@ -29,8 +29,11 @@ uint8_t rpc_json_result_get_wifi_scan_result(void *result, cJSON **json);
 uint8_t rpc_json_result_get_wifi_network_list(void *result, cJSON **json);
 uint8_t rpc_json_result_get_file_list(void *result, cJSON **json);
 uint8_t rpc_json_result_get_track_info(void *result, cJSON **json);
+
 void *rpc_json_params_set_wifi_network(cJSON *params);
 void *rpc_json_params_delete_wifi_network(cJSON *params);
 void *rpc_json_params_get_file_list(cJSON *params);
 void *rpc_json_params_get_track_info(cJSON *params);
 void *rpc_json_params_set_volume(cJSON *params);
+
+void rpc_json_notif_params_volume(void *params, cJSON **json);
