@@ -65,6 +65,7 @@ void app_main(void) {
     button_init();
     vs_init();
     vs_card_init(CARD_MOUNT_POINT);
+    vs_set_volume(0x3C3C);
     audio_init();
     rpc_init();
     con_init();
@@ -76,9 +77,9 @@ void app_main(void) {
     msg_type_t msg_type_button = button_msg_type();
     msg_type_t msg_type_wlan = wlan_msg_type();
     msg_type_t msg_type_con = con_msg_type();
-    msg_type_t msg_type_ws_recv = http_msg_type_ws_recv();
+    msg_type_t msg_type_http = http_msg_type();
 
-    msg_handle_t msg_handle = msg_listen(msg_type_int | msg_type_audio | msg_type_button | msg_type_wlan | msg_type_con | msg_type_ws_recv);
+    msg_handle_t msg_handle = msg_listen(msg_type_int | msg_type_audio | msg_type_button | msg_type_wlan | msg_type_con | msg_type_http);
 
     TimerHandle_t timer = xTimerCreate("idle-check", pdMS_TO_TICKS(500), true, NULL, idle_check_timer_cb);
     xTimerStart(timer, 0);
@@ -142,34 +143,40 @@ void app_main(void) {
                 default:
                     break;
             }
-        } else if (msg.type == msg_type_ws_recv) {
-            ws_msg_t *ws_msg = msg.ptr;
-            LOGI("received [%lu]: %s", ws_msg->con, ws_msg->text);
-            char *response = rpc_handle_request(ws_msg->con, ws_msg->text);
-            if (response) {
-                LOGI("send [%lu]: %s", ws_msg->con, response);
-                http_send_ws_msg(ws_msg->con, response);
-                free(response);
-            }
-            msg_free(&msg);
-        } else if (msg.type == msg_type_audio) {
-            audio_notif_t *audio_notif = msg.ptr;
-            switch (audio_notif->type) {
-                case AUDIO_VOLUME:
-                    rpc_notif_params_volume_t *params = calloc(1, sizeof(rpc_notif_params_volume_t));
-                    params->left = audio_notif->volume.left;
-                    params->right = audio_notif->volume.right;
-                    char *notif = rpc_build_notification(RPC_NOTIF_VOLUME, params);
-                    if (notif) {
-                        LOGI("send notif [%lu]: %s", audio_notif->con, notif);
-                        http_send_ws_notif(audio_notif->con, notif);
-                        free(notif);
+        } else if (msg.type == msg_type_http) {
+            switch (msg.value) {
+                case HTTP_WS_RECEIVED:
+                    ws_msg_t *ws_msg = msg.ptr;
+                    LOGI("received [%lu]: %s", ws_msg->con, ws_msg->text);
+                    char *response = rpc_handle_request(ws_msg->con, ws_msg->text);
+                    if (response) {
+                        LOGI("send [%lu]: %s", ws_msg->con, response);
+                        http_send_ws_msg(ws_msg->con, response);
+                        free(response);
                     }
+                    msg_free(&msg);
                     break;
                 default:
                     break;
             }
-            msg_free(&msg);
+        } else if (msg.type == msg_type_audio) {
+            switch (msg.value) {
+                case AUDIO_NOTIF_VOLUME:
+                    audio_notif_t *ntfn = msg.ptr;
+                    rpc_notif_params_volume_t *params = calloc(1, sizeof(rpc_notif_params_volume_t));
+                    params->left = ntfn->volume.left;
+                    params->right = ntfn->volume.right;
+                    char *notif = rpc_build_notification(RPC_NOTIF_VOLUME, params);
+                    if (notif) {
+                        LOGI("send notif [%lu]: %s", ntfn->con, notif);
+                        http_send_ws_notif(ntfn->con, notif);
+                        free(notif);
+                    }
+                    msg_free(&msg);
+                    break;
+                default:
+                    break;
+            }
         } else {
         }
         //ESP_LOGI(TAG, "Free heap: %d - minimum: %d", xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
@@ -181,7 +188,7 @@ void app_main(void) {
 ***************************/
 
 static void idle_check_timer_cb(TimerHandle_t timer) {
-    msg_send_value(msg_type_int, MSG_IDLE_CHECK);
+    msg_send(msg_type_int, MSG_IDLE_CHECK);
 }
 
 /*static void handle_audio_event(message_t *msg) {

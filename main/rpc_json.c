@@ -279,6 +279,19 @@ void *rpc_json_params_get_track_info(cJSON *params) {
     return obj;
 }
 
+void *rpc_json_params_play_track(cJSON *params) {
+    rpc_params_play_track_t *obj = NULL;
+    if (cJSON_IsObject(params)) {
+        cJSON *file = cJSON_GetObjectItemCaseSensitive(params, "file");
+        if (   cJSON_IsString(file)
+            && (strlen(file->valuestring) > 0)) {
+            obj = calloc(1, sizeof(rpc_params_play_track_t));
+            obj->filename = strdup(file->valuestring);
+        }
+    }
+    return obj;
+}
+
 void *rpc_json_params_set_volume(cJSON *params) {
     rpc_params_set_volume_t *obj = NULL;
     if (cJSON_IsObject(params)) {

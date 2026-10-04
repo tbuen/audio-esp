@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/param.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "rpc_types.h"
@@ -79,6 +80,19 @@ bool card_get_directory_entries(const char *path, dir_entries_t *entries) {
     } else {
         LOGW("could not open directory %s", path);
         ret = false;
+    }
+    return ret;
+}
+
+uint8_t card_is_track(const char *filename) {
+    uint8_t ret = RPC_ERROR_NO_ERROR;
+    if (strcmp(".ogg", &filename[strlen(filename) - 4])) {
+        ret = RPC_ERROR_NO_TRACK;
+    } else {
+        struct stat st;
+        if (stat(filename, &st)) {
+            ret = RPC_ERROR_FILE_NOT_FOUND;
+        }
     }
     return ret;
 }

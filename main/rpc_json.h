@@ -34,6 +34,7 @@ void *rpc_json_params_set_wifi_network(cJSON *params);
 void *rpc_json_params_delete_wifi_network(cJSON *params);
 void *rpc_json_params_get_file_list(cJSON *params);
 void *rpc_json_params_get_track_info(cJSON *params);
+void *rpc_json_params_play_track(cJSON *params);
 void *rpc_json_params_set_volume(cJSON *params);
 
 void rpc_json_notif_params_volume(void *params, cJSON **json);

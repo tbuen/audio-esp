@@ -101,6 +101,10 @@ typedef struct {
 } rpc_params_get_track_info_t;
 
 typedef struct {
+    char *filename;
+} rpc_params_play_track_t;
+
+typedef struct {
     int left;
     int right;
 } rpc_params_set_volume_t;

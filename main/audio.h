@@ -9,7 +9,7 @@
 ***** CONSTANTS *****
 ********************/
 
-#define AUDIO_VOLUME    1
+#define AUDIO_NOTIF_VOLUME  1
 
 /********************
 ***** MACROS ********
@@ -21,7 +21,6 @@
 
 typedef struct {
     con_id_t con;
-    uint8_t type;
     union {
         struct {
             int8_t left;
@@ -45,6 +44,5 @@ void        audio_init(void);
 msg_type_t  audio_msg_type(void);
 void        audio_set_volume(int left, int right);
 void        audio_get_volume(con_id_t con);
-
-//void audio_request(const msg_audio_request_t *request);
-//bool audio_play(const char *filename);
+void        audio_play_file(const char *filename);
+void        audio_stop_play(void);

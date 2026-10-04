@@ -42,4 +42,5 @@ typedef struct {
 ********************/
 
 bool card_get_directory_entries(const char *path, dir_entries_t *entries);
+uint8_t card_is_track(const char *filename);
 uint8_t card_get_track_info(const char *filename, track_info_t *info);
