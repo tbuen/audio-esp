@@ -176,6 +176,18 @@ void app_main(void) {
                 }
                 case AUDIO_NOTIF_STATE: {
                     audio_notif_t *ntfn = msg.ptr;
+                    switch (ntfn->state.mode) {
+                        case AUDIO_MODE_PLAY:
+                            led_set(LED_BLUE, LED_HIGH);
+                            break;
+                        case AUDIO_MODE_PAUSE:
+                            led_set(LED_BLUE, LED_LOW);
+                            break;
+                        case AUDIO_MODE_STOP:
+                        default:
+                            led_set(LED_BLUE, LED_OFF);
+                            break;
+                    }
                     rpc_notif_params_audio_state_t *params = &ntfn->state;
                     char *notif = rpc_build_notification(RPC_NOTIF_AUDIO_STATE, params);
                     if (notif) {

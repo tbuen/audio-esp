@@ -28,5 +28,6 @@ void rpc_handler_delete_wifi_network(void *ctx, void *params, void **result);
 void rpc_handler_get_file_list(void *ctx, void *params, void **result);
 void rpc_handler_get_track_info(void *ctx, void *params, void **result);
 void rpc_handler_play_track(void *ctx, void *params, void **result);
-void rpc_handler_stop_play(void *ctx, void *params, void **result);
+void rpc_handler_stop(void *ctx, void *params, void **result);
+void rpc_handler_pause(void *ctx, void *params, void **result);
 void rpc_handler_set_volume(void *ctx, void *params, void **result);

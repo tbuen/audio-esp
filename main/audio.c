@@ -19,9 +19,10 @@
 
 #define AUDIO_INT_SET_VOLUME      1
 #define AUDIO_INT_PLAY_FILE       2
-#define AUDIO_INT_STOP_PLAY       3
-#define AUDIO_INT_NOTIF_VOLUME    4
-#define AUDIO_INT_NOTIF_STATE     5
+#define AUDIO_INT_STOP            3
+#define AUDIO_INT_PAUSE           4
+#define AUDIO_INT_NOTIF_VOLUME    5
+#define AUDIO_INT_NOTIF_STATE     6
 
 #define VOL_MIN     -50
 #define VOL_MAX       0
@@ -97,9 +98,14 @@ void audio_play_file(const char *filename) {
     msg_send_with_ptr(msg_type_int, AUDIO_INT_PLAY_FILE, (void*)filename, NULL);
 }
 
-void audio_stop_play(void) {
+void audio_stop(void) {
     assert(msg_type_int);
-    msg_send(msg_type_int, AUDIO_INT_STOP_PLAY);
+    msg_send(msg_type_int, AUDIO_INT_STOP);
+}
+
+void audio_pause(void) {
+    assert(msg_type_int);
+    msg_send(msg_type_int, AUDIO_INT_PAUSE);
 }
 
 void audio_send_volume_notif(con_id_t con) {
@@ -120,6 +126,7 @@ static void audio_task(void *param) {
     static uint8_t data[4096];
     uint8_t end_fill_byte = 0xFF;
     bool cancel_play = false;
+    bool pause_play = false;
     vs_info_t info;
     int fd = -1;
     audio_state_t state = { .mode = AUDIO_MODE_STOP, .file = NULL, .pos = 0 };
@@ -145,6 +152,7 @@ static void audio_task(void *param) {
                             cancel_play = true;
                             msg_send_again(&msg);
                         } else {
+                            pause_play = false;
                             fd = open(msg.ptr, O_RDONLY, 0);
                             state.mode = AUDIO_MODE_PLAY;
                             state.file = msg.ptr;
@@ -152,9 +160,16 @@ static void audio_task(void *param) {
                             send_state_notif(&state, CON_ALL_CLIENTS);
                         }
                         break;
-                    case AUDIO_INT_STOP_PLAY:
+                    case AUDIO_INT_STOP:
                         if (fd >= 0) {
                             cancel_play = true;
+                        }
+                        break;
+                    case AUDIO_INT_PAUSE:
+                        if (!cancel_play && (fd >= 0)) {
+                            pause_play = !pause_play;
+                            state.mode = pause_play ? AUDIO_MODE_PAUSE : AUDIO_MODE_PLAY;
+                            send_state_notif(&state, CON_ALL_CLIENTS);
                         }
                         break;
                     case AUDIO_INT_NOTIF_VOLUME:
@@ -169,7 +184,13 @@ static void audio_task(void *param) {
             }
         }
         if (fd >= 0) {
-            int n = read(fd, data, sizeof(data));
+            int n = 0;
+            if (pause_play) {
+                n = sizeof(data);
+                memset(data, end_fill_byte, n);
+            } else {
+                n = read(fd, data, sizeof(data));
+            }
             if (n > 0) {
                 if (cancel_play) {
                     close(fd);
@@ -200,13 +221,15 @@ static void audio_task(void *param) {
                     send_state_notif(&state, CON_ALL_CLIENTS);
                 } else {
                     vs_send_data(data, n);
-                    uint32_t pos;
-                    if (vs_read_position_ms(&pos) == ESP_OK) {
-                        uint16_t newpos = pos / 1000;
-                        LOGD("position: %d.%ds", newpos, pos / 100 % 10);
-                        if (newpos != state.pos) {
-                            state.pos = newpos;
-                            send_state_notif(&state, CON_ALL_CLIENTS);
+                    if (!pause_play) {
+                        uint32_t pos;
+                        if (vs_read_position_ms(&pos) == ESP_OK) {
+                            uint16_t newpos = pos / 1000;
+                            LOGD("position: %d.%ds", newpos, pos / 100 % 10);
+                            if (newpos != state.pos) {
+                                state.pos = newpos;
+                                send_state_notif(&state, CON_ALL_CLIENTS);
+                            }
                         }
                     }
                 }

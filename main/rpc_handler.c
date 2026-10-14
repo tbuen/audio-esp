@@ -241,9 +241,15 @@ void rpc_handler_play_track(void *ctx, void *params, void **result) {
     *result = result_obj;
 }
 
-void rpc_handler_stop_play(void *ctx, void *params, void **result) {
+void rpc_handler_stop(void *ctx, void *params, void **result) {
     rpc_result_error_t *result_obj = calloc(1, sizeof(rpc_result_error_t));
-    audio_stop_play();
+    audio_stop();
+    *result = result_obj;
+}
+
+void rpc_handler_pause(void *ctx, void *params, void **result) {
+    rpc_result_error_t *result_obj = calloc(1, sizeof(rpc_result_error_t));
+    audio_pause();
     *result = result_obj;
 }
 

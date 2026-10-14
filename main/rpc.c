@@ -46,7 +46,8 @@ static const json_rpc_config_t rpc_config[] = {
     { "get-file-list"        , &rpc_handler_get_file_list        , &rpc_json_params_get_file_list      , &rpc_json_result_get_file_list         },
     { "get-track-info"       , &rpc_handler_get_track_info       , &rpc_json_params_get_track_info     , &rpc_json_result_get_track_info        },
     { "play-track"           , &rpc_handler_play_track           , &rpc_json_params_play_track         , &rpc_json_result_error                 },
-    { "stop-play"            , &rpc_handler_stop_play            , NULL                                , &rpc_json_result_error                 },
+    { "stop"                 , &rpc_handler_stop                 , NULL                                , &rpc_json_result_error                 },
+    { "pause"                , &rpc_handler_pause                , NULL                                , &rpc_json_result_error                 },
     { "set-volume"           , &rpc_handler_set_volume           , &rpc_json_params_set_volume         , &rpc_json_result_error                 },
     { NULL                   , NULL                              , NULL                                , NULL                                   }
 };

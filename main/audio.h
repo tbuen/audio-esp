@@ -53,6 +53,7 @@ void        audio_init(void);
 msg_type_t  audio_msg_type(void);
 void        audio_set_volume(int left, int right);
 void        audio_play_file(const char *filename);
-void        audio_stop_play(void);
+void        audio_stop(void);
+void        audio_pause(void);
 void        audio_send_volume_notif(con_id_t con);
 void        audio_send_state_notif(con_id_t con);
