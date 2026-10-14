@@ -251,7 +251,6 @@ void rpc_handler_set_volume(void *ctx, void *params, void **result) {
     rpc_result_error_t *result_obj = calloc(1, sizeof(rpc_result_error_t));
     rpc_params_set_volume_t *vol = params;
     audio_set_volume(vol->left, vol->right);
-    audio_get_volume(CON_ALL_CLIENTS);
     free(params);
     *result = result_obj;
 }

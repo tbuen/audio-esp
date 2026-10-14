@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "audio.h"
+#include "connection.h"
 #include "message.h"
 #include "vs1053.h"
 
@@ -17,9 +18,10 @@
 #define STACK_SIZE             4096
 
 #define AUDIO_INT_SET_VOLUME      1
-#define AUDIO_INT_GET_VOLUME      2
-#define AUDIO_INT_PLAY_FILE       3
-#define AUDIO_INT_STOP_PLAY       4
+#define AUDIO_INT_PLAY_FILE       2
+#define AUDIO_INT_STOP_PLAY       3
+#define AUDIO_INT_NOTIF_VOLUME    4
+#define AUDIO_INT_NOTIF_STATE     5
 
 #define VOL_MIN     -50
 #define VOL_MAX       0
@@ -44,6 +46,9 @@
 ***************************/
 
 static void audio_task(void *param);
+static void send_volume_notif(con_id_t con);
+static void send_state_notif(audio_state_t *state, con_id_t con);
+static void free_state_notif(void *ptr);
 
 /***************************
 ***** LOCAL VARIABLES ******
@@ -87,11 +92,6 @@ void audio_set_volume(int left, int right) {
     msg_send_with_data(msg_type_int, AUDIO_INT_SET_VOLUME, ((-2 * left) << 8) | (-2 * right));
 }
 
-void audio_get_volume(con_id_t con) {
-    assert(msg_type_int);
-    msg_send_with_data(msg_type_int, AUDIO_INT_GET_VOLUME, con);
-}
-
 void audio_play_file(const char *filename) {
     assert(msg_type_int);
     msg_send_with_ptr(msg_type_int, AUDIO_INT_PLAY_FILE, (void*)filename, NULL);
@@ -100,6 +100,16 @@ void audio_play_file(const char *filename) {
 void audio_stop_play(void) {
     assert(msg_type_int);
     msg_send(msg_type_int, AUDIO_INT_STOP_PLAY);
+}
+
+void audio_send_volume_notif(con_id_t con) {
+    assert(msg_type_int);
+    msg_send_with_data(msg_type_int, AUDIO_INT_NOTIF_VOLUME, con);
+}
+
+void audio_send_state_notif(con_id_t con) {
+    assert(msg_type_int);
+    msg_send_with_data(msg_type_int, AUDIO_INT_NOTIF_STATE, con);
 }
 
 /***************************
@@ -112,6 +122,7 @@ static void audio_task(void *param) {
     bool cancel_play = false;
     vs_info_t info;
     int fd = -1;
+    audio_state_t state = { .mode = AUDIO_MODE_STOP, .file = NULL, .pos = 0 };
 
     if (vs_read_info(&info) == ESP_OK) {
         if (info.version == 0x0003) {
@@ -127,14 +138,7 @@ static void audio_task(void *param) {
                 switch (msg.value) {
                     case AUDIO_INT_SET_VOLUME:
                         vs_set_volume(msg.data);
-                        break;
-                    case AUDIO_INT_GET_VOLUME:
-                        uint16_t vol = vs_get_volume();
-                        audio_notif_t *audio_notif = calloc(1, sizeof(audio_notif_t));
-                        audio_notif->con = msg.data;
-                        audio_notif->volume.left = (vol >> 8) / -2;
-                        audio_notif->volume.right = (vol & 0xFF) / -2;
-                        msg_send_with_ptr(msg_type, AUDIO_NOTIF_VOLUME, audio_notif, NULL);
+                        send_volume_notif(CON_ALL_CLIENTS);
                         break;
                     case AUDIO_INT_PLAY_FILE:
                         if (fd >= 0) {
@@ -142,13 +146,22 @@ static void audio_task(void *param) {
                             msg_send_again(&msg);
                         } else {
                             fd = open(msg.ptr, O_RDONLY, 0);
-                            msg_free(&msg);
+                            state.mode = AUDIO_MODE_PLAY;
+                            state.file = msg.ptr;
+                            state.pos = 0;
+                            send_state_notif(&state, CON_ALL_CLIENTS);
                         }
                         break;
                     case AUDIO_INT_STOP_PLAY:
                         if (fd >= 0) {
                             cancel_play = true;
                         }
+                        break;
+                    case AUDIO_INT_NOTIF_VOLUME:
+                        send_volume_notif(msg.data);
+                        break;
+                    case AUDIO_INT_NOTIF_STATE:
+                        send_state_notif(&state, msg.data);
                         break;
                     default:
                         break;
@@ -161,7 +174,6 @@ static void audio_task(void *param) {
                 if (cancel_play) {
                     close(fd);
                     fd = -1;
-                    LOGI("CANCEL FILE START");
                     if (n < sizeof(data)) {
                         memset(&data[n], end_fill_byte, sizeof(data) - n);
                     }
@@ -181,16 +193,23 @@ static void audio_task(void *param) {
                     memset(data, end_fill_byte, sizeof(data));
                     vs_send_data(data, 2052);
                     LOGI("status: %s", vs_get_status());
-                    LOGI("CANCEL FILE END");
+                    free(state.file);
+                    state.mode = AUDIO_MODE_STOP;
+                    state.file = NULL;
+                    state.pos = 0;
+                    send_state_notif(&state, CON_ALL_CLIENTS);
                 } else {
                     vs_send_data(data, n);
                     uint32_t pos;
                     if (vs_read_position_ms(&pos) == ESP_OK) {
-                        LOGI("position: %d.%ds", pos / 1000, pos / 100 % 10);
+                        uint16_t newpos = pos / 1000;
+                        LOGD("position: %d.%ds", newpos, pos / 100 % 10);
+                        if (newpos != state.pos) {
+                            state.pos = newpos;
+                            send_state_notif(&state, CON_ALL_CLIENTS);
+                        }
                     }
                 }
-                //LOGI("status: %s", vs_get_status());
-                //taskYIELD();
             } else {
                 if (n == 0) {
                     LOGI("reached EOF!");
@@ -199,7 +218,6 @@ static void audio_task(void *param) {
                 }
                 close(fd);
                 fd = -1;
-                LOGI("END FILE START");
                 LOGI("status: %s", vs_get_status());
                 memset(data, end_fill_byte, sizeof(data));
                 vs_send_data(data, 2052);
@@ -216,9 +234,38 @@ static void audio_task(void *param) {
                     LOGI("cancel: 0");
                 }
                 LOGI("status: %s", vs_get_status());
-                LOGI("END FILE END");
+                free(state.file);
+                state.mode = AUDIO_MODE_STOP;
+                state.file = NULL;
+                state.pos = 0;
+                send_state_notif(&state, CON_ALL_CLIENTS);
             }
             cancel_play = false;
         }
     }
+}
+
+static void send_volume_notif(con_id_t con) {
+    uint16_t vol = vs_get_volume();
+    audio_notif_t *audio_notif = calloc(1, sizeof(audio_notif_t));
+    audio_notif->con = con;
+    audio_notif->volume.left = (vol >> 8) / -2;
+    audio_notif->volume.right = (vol & 0xFF) / -2;
+    msg_send_with_ptr(msg_type, AUDIO_NOTIF_VOLUME, audio_notif, NULL);
+}
+
+static void send_state_notif(audio_state_t *state, con_id_t con) {
+    audio_notif_t *audio_notif = calloc(1, sizeof(audio_notif_t));
+    audio_notif->con = con;
+    audio_notif->state.mode = state->mode;
+    if (state->file) {
+        audio_notif->state.file = strdup(state->file);
+    }
+    audio_notif->state.pos = state->pos;
+    msg_send_with_ptr(msg_type, AUDIO_NOTIF_STATE, audio_notif, &free_state_notif);
+}
+
+static void free_state_notif(void *ptr) {
+    audio_notif_t *msg = ptr;
+    free(msg->state.file);
 }

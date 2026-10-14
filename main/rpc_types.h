@@ -7,6 +7,7 @@
 #include "card.h"
 #include "connection.h"
 #include "filesystem.h"
+#include "audio.h"
 
 /********************
 ***** CONSTANTS *****
@@ -23,7 +24,8 @@
 #define RPC_ERROR_NO_TRACK                  6
 #define RPC_ERROR_IO_ERROR                  7
 
-#define RPC_NOTIF_VOLUME    "volume"
+#define RPC_NOTIF_VOLUME                "volume"
+#define RPC_NOTIF_AUDIO_STATE           "audio-state"
 
 /********************
 ***** MACROS ********
@@ -109,10 +111,8 @@ typedef struct {
     int right;
 } rpc_params_set_volume_t;
 
-typedef struct {
-    int left;
-    int right;
-} rpc_notif_params_volume_t;
+typedef audio_volume_t rpc_notif_params_audio_volume_t;
+typedef audio_state_t  rpc_notif_params_audio_state_t;
 
 /********************
 ***** FUNCTIONS *****

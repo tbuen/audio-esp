@@ -10,6 +10,7 @@
 ********************/
 
 #define AUDIO_NOTIF_VOLUME  1
+#define AUDIO_NOTIF_STATE   2
 
 /********************
 ***** MACROS ********
@@ -19,22 +20,30 @@
 ***** TYPES *********
 ********************/
 
+typedef enum {
+    AUDIO_MODE_STOP,
+    AUDIO_MODE_PAUSE,
+    AUDIO_MODE_PLAY
+} audio_mode_t;
+
+typedef struct {
+    int8_t left;
+    int8_t right;
+} audio_volume_t;
+
+typedef struct {
+    audio_mode_t mode;
+    char *file;
+    uint16_t pos;
+} audio_state_t;
+
 typedef struct {
     con_id_t con;
     union {
-        struct {
-            int8_t left;
-            int8_t right;
-        } volume;
+        audio_volume_t volume;
+        audio_state_t  state;
     };
 } audio_notif_t;
-
-//#define AUDIO_NO_ERROR                0
-//#define AUDIO_IO_ERROR             -100
-//#define AUDIO_START_ERROR          -101
-//#define AUDIO_BUSY_ERROR           -102
-//#define AUDIO_FILE_NOT_FOUND_ERROR -103
-//#define AUDIO_FILE_TYPE_ERROR      -104
 
 /********************
 ***** FUNCTIONS *****
@@ -43,6 +52,7 @@ typedef struct {
 void        audio_init(void);
 msg_type_t  audio_msg_type(void);
 void        audio_set_volume(int left, int right);
-void        audio_get_volume(con_id_t con);
 void        audio_play_file(const char *filename);
 void        audio_stop_play(void);
+void        audio_send_volume_notif(con_id_t con);
+void        audio_send_state_notif(con_id_t con);

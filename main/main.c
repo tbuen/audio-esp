@@ -133,7 +133,8 @@ void app_main(void) {
                     if (con_count()) {
                         led_set(LED_YELLOW, LED_HIGH);
                     }
-                    audio_get_volume(msg.data);
+                    audio_send_volume_notif(msg.data);
+                    audio_send_state_notif(msg.data);
                     break;
                 case CON_DISCONNECTED:
                     if (!con_count()) {
@@ -161,11 +162,9 @@ void app_main(void) {
             }
         } else if (msg.type == msg_type_audio) {
             switch (msg.value) {
-                case AUDIO_NOTIF_VOLUME:
+                case AUDIO_NOTIF_VOLUME: {
                     audio_notif_t *ntfn = msg.ptr;
-                    rpc_notif_params_volume_t *params = calloc(1, sizeof(rpc_notif_params_volume_t));
-                    params->left = ntfn->volume.left;
-                    params->right = ntfn->volume.right;
+                    rpc_notif_params_audio_volume_t *params = &ntfn->volume;
                     char *notif = rpc_build_notification(RPC_NOTIF_VOLUME, params);
                     if (notif) {
                         LOGI("send notif [%lu]: %s", ntfn->con, notif);
@@ -174,6 +173,19 @@ void app_main(void) {
                     }
                     msg_free(&msg);
                     break;
+                }
+                case AUDIO_NOTIF_STATE: {
+                    audio_notif_t *ntfn = msg.ptr;
+                    rpc_notif_params_audio_state_t *params = &ntfn->state;
+                    char *notif = rpc_build_notification(RPC_NOTIF_AUDIO_STATE, params);
+                    if (notif) {
+                        LOGI("send notif [%lu]: %s", ntfn->con, notif);
+                        http_send_ws_notif(ntfn->con, notif);
+                        free(notif);
+                    }
+                    msg_free(&msg);
+                    break;
+                }
                 default:
                     break;
             }

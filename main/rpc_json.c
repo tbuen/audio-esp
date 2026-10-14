@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "audio.h"
 #include "cJSON.h"
 #include "connection.h"
 #include "rpc_types.h"
@@ -307,12 +308,35 @@ void *rpc_json_params_set_volume(cJSON *params) {
     return obj;
 }
 
-void rpc_json_notif_params_volume(void *params, cJSON **json) {
-    rpc_notif_params_volume_t *volume = params;
+void rpc_json_notif_params_audio_volume(void *params, cJSON **json) {
+    rpc_notif_params_audio_volume_t *volume = params;
     *json = cJSON_CreateObject();
     cJSON_AddNumberToObject(*json, "left", volume->left);
     cJSON_AddNumberToObject(*json, "right", volume->right);
-    free(params);
+}
+
+void rpc_json_notif_params_audio_state(void *params, cJSON **json) {
+    rpc_notif_params_audio_state_t *state = params;
+    *json = cJSON_CreateObject();
+    switch (state->mode) {
+        case AUDIO_MODE_STOP:
+            cJSON_AddStringToObject(*json, "mode", "STOP");
+            break;
+        case AUDIO_MODE_PAUSE:
+            cJSON_AddStringToObject(*json, "mode", "PAUSE");
+            break;
+        case AUDIO_MODE_PLAY:
+            cJSON_AddStringToObject(*json, "mode", "PLAY");
+            break;
+        default:
+            break;
+    }
+    if (state->file) {
+        cJSON_AddStringToObject(*json, "file", state->file);
+    } else {
+        cJSON_AddNullToObject(*json, "file");
+    }
+    cJSON_AddNumberToObject(*json, "pos", state->pos);
 }
 
 /***************************

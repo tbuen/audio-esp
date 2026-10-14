@@ -37,4 +37,5 @@ void *rpc_json_params_get_track_info(cJSON *params);
 void *rpc_json_params_play_track(cJSON *params);
 void *rpc_json_params_set_volume(cJSON *params);
 
-void rpc_json_notif_params_volume(void *params, cJSON **json);
+void rpc_json_notif_params_audio_volume(void *params, cJSON **json);
+void rpc_json_notif_params_audio_state(void *params, cJSON **json);

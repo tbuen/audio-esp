@@ -63,8 +63,9 @@ static const json_rpc_error_config_t rpc_err_config[] = {
 };
 
 static const rpc_ntfn_config_t rpc_ntfn_config[] = {
-    { RPC_NOTIF_VOLUME, &rpc_json_notif_params_volume },
-    { NULL            , NULL                          }
+    { RPC_NOTIF_VOLUME      , &rpc_json_notif_params_audio_volume },
+    { RPC_NOTIF_AUDIO_STATE , &rpc_json_notif_params_audio_state  },
+    { NULL                  , NULL                                }
 };
 
 /***************************
